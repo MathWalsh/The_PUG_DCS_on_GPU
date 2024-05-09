@@ -1,0 +1,96 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Source Files\CJSON">
+      <UniqueIdentifier>{6392b4b0-4805-4f44-93c6-f9deba47dc36}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ThePUG_daemon">
+      <UniqueIdentifier>{2cf6a366-c74a-4891-9402-4af47abe80c8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\GPU_headers">
+      <UniqueIdentifier>{d087286f-abc6-40e4-aa6f-ac125e29e172}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\PUG_headers">
+      <UniqueIdentifier>{d6baa4bd-0a1c-4ffc-920b-251dcecfabb9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Source\cJSON-master\cJSON.c">
+      <Filter>Source Files\CJSON</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\AcquisitionProcessingThread.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\DCSProcessingHandler.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\ErrorHandler.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\GaGeCard_Interface.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\main.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\MainThreadHandler.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\TCP_Server.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\ThreadHandler.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\PUG_daemon\CUDA_GPU_Interface.cpp">
+      <Filter>Source Files\ThePUG_daemon</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Source\PUG_daemon\AcquisitionProcessingThread.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PUG_daemon\CUDA_GPU_interface.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PUG_daemon\DCSProcessingHandler.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PUG_daemon\ErrorHandler.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PUG_daemon\GaGeCard_interface.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PUG_daemon\general_project_defines.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PUG_daemon\MainThreadHandler.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PUG_daemon\TCP_Server.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PUG_daemon\ThreadHandler.h">
+      <Filter>Header Files\PUG_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\GPU_lib\DCS_GPU_library.h">
+      <Filter>Header Files\GPU_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\GPU_lib\DCS_structs.h">
+      <Filter>Header Files\GPU_headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,23 @@
+{
+    "nb_pts_per_buffer": 60000000,
+    "segment_size": 60000000,
+    "nb_channels": 4,
+    "sampling_rate_Hz": 200000000,
+    "external_clock": 0,
+    "channel1_range_mV": 480,
+    "channel1_coupling": "DC",
+    "channel1_impedance": 50,
+    "channel2_range_mV": 480,
+    "channel2_coupling": "DC",
+    "channel2_impedance": 50,
+    "channel3_range_mV": 480,
+    "channel3_coupling": "DC",
+    "channel3_impedance": 50,
+    "channel4_range_mV": 480,
+    "channel4_coupling": "DC",
+    "channel4_impedance": 50,
+    "trigger_level": 0,
+    "trigger_source": 1,
+    "nb_bytes_per_sample": 2,
+    "ref_clock_10MHz": 0
+}

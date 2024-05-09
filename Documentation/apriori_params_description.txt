@@ -1,0 +1,70 @@
+The apriori_params.json in the "parameters" folder of the python interface code when the interface is started.
+You can edit and save it using the 'A Priori Parameters' panel in the python interface. 
+
+These parameters describe your setup and experiment. They provide guidance to the processing code as how to compute de correction parameters
+(see Computed parameters).
+
+This file describes the meaning of each parameter expected in this "apriori_params.json" file
+as well as the default values used as of March 2024, with a NIST NIR open path system card
+
+The lower you go in the list, the more you should question if you should really modify this parameter
+
+Typical values are given as examples
+
+
+    "absolute_path": 				"C:\\GPU_acquisition",		This is the base path where all data is saved, data and params are saved in time stamped folders		
+    "save_data_to_file": 			1,				Sets if data is saved or not
+    "nb_buffer_average": 			200,				how many buffers are averaged in each saved file
+
+    "fr_approx_Hz": 				200e6,				Appromimate comb rep rate
+    "dfr_approx_Hz": 				805,				Approximate difference of rep rates (this will be computed more precisely after pre-acquisition, see computed Params)
+
+    "minimum_signal_level_threshold_mV": 	10,				IGMs having a peak value below this threshold will be discarded
+    "maximum_signal_level_threshold_mV": 	230,				IGMs having a peak value above this threshold will be discarded (nonlinearity / ADC clipping)
+    "do_weighted_average": 			1,				0 : Kept IGMs are averaged with equal weighting 1: IGMS are weighted according to max of xcorr with template 
+
+    "reference1_laser_wvl_nm": 			1565.495,			Wavelength of the CW laser acting as optical reference 
+    "nb_phase_references": 			2,				1: only optical reference is used 2: 2 references, for the moment this assume second ref is CEO beats
+    "do_phase_projection": 			1,				0: do the fast phase correction at the optical reference WL, 1: Do fast phase correction at projected WL (only avail with 2 refs)
+    "projection_wvl_nm": 			1645,				WL at which the phase noise is computed from the two references and that will be perfectly corrected by fast phase correction 
+    "do_fast_resampling" :			0,				Wether or not the fast resampling step is performed. 
+    "spectro_mode" :				0,				0: Normal 1: DFG  (future use 2: Frequency doubling, ...) 
+
+    "references_total_path_length_offset_m"	0				Propagation Distance (in air) between ref signals and IGM
+    "central_IGM_wavelength_approx_nm":		1600,				The approximate central WL of your spectroscopy light	
+
+    "IGMs_spectrum_min_freq_Hz": 		17000000.0,			lower frequency limit for filter on IGM
+    "IGMs_spectrum_max_freq_Hz": 		93000000.0,			higher frequency limit for filter on IGM
+    "bandwidth_filter_fopt": 			5000000.0,			BW for fopt beatnotes filters (central position computed in pre-acquitition)
+    "bandwidth_filter_ceo": 			8000000.0,			BW for CEO beatnotes filters (central position computed in pre-acquitition)
+
+    "nb_pts_per_channel_compute": 		15000000.0,			how many point are used by Matlab compiled script from pre-acq to compute correction parameters
+    "nb_pts_post_processing": 			200000000.0,			in post-processing, how many points will be processed (total pts, not pts ber buffer)
+
+    "half_width_template": 			-1,				-1, or forced value for the half witdh of the template used for xcorr
+
+    "signals_channel_index": 			[				On which acq card channel various signals should be taken 				
+       						1,				IGM
+        					2,				fop1		here both fopt are multiplexed on the same card input
+        					2,				fop2
+        					3,				fceo1		we do not care which is 1 or 2, both for CEO and optical beats
+        					4				fceo2
+    						],
+
+    "decimation_factor": 			2,				Data is decimated by this factor after fast phase correction (1 or 2 for now)
+    "save_to_float": 				1,				1 : float32  0: int16,  format for saved data
+
+    "max_delay_xcorr": 				40,				Nb of points scanned by xcorr when searching next IGM
+    "nb_pts_interval_interpolation": 		20,				Nb of points scaned when searching where falls wanted point on actual grid. 
+
+"nb_coefficients_filters":			32,				Nb of points used for the fir filters (32, 64 or 96). Increasing the number of points will increase the filter performance at the cost of increased computation time.
+
+
+										All the following are for internal use only, not intended for the user,
+										These parameters are mostly used to pass information from the C code to the 										matlab compiled script
+										They are thus written over by the C script, regardless of what is specified 										in the interface
+    "do_post_processing": 			0,				0 means we are in real-time acq mode, 1 means we are post-processing previously acquired raw data
+    "date_path": 				"20240207_16h12m07s",		In the base path, each acquistion is saved in a dated folder									
+    "input_data_file_name": 			"DataName.bin",			
+
+

@@ -1,0 +1,70 @@
+GaGe card memory acquisition bug
+	Streaming buffer error -57 : CS_INSUFFICIENT_RESOURCES
+	
+	Only current solution is to reboot the PC
+	This seems to be related to DMA memory allocation
+	From Gage:
+		Streaming buffer allocations require contiguous PC RAM memory. The error means that the PC does not have enough contiguous memory to satisfy the request.
+		The PC has most contiguous memory just after bootup. After that, the memory can be increasingly fragmented by running applications. Closing an application is only releasing memory required for that application. However, the memory can be still fragmented. Background applications (ex: antivirus) can fragment memory as well.
+		Here are some solutions for this problem:
+            		Close all applications that are not required. (may solve the problem, reboot is not required)
+             		Reduce the buffer size for streaming (may solve the problem, reboot is not required)
+             		Reboot the PC then run streaming acquisition as soon as possible.
+             		Add more RAM to the PC
+ 
+            	Gage API cannot reset the PC memory. Memory management belong to Windows OS. Reboot the PC will reset the PC memory.
+
+Non inclusion of windows.h in library causes invalid memory access
+
+IGM continuity between batches.
+
+Documentation, read me code an exe only checkout / installation & code a code installation
+
+Make release in lib project, detail procedure in read me 
+
+Curl script to retreive a lib release in public project. 
+
+Pass on error handling to reduce console verbosity and redirect to TCP messages
+
+UDP Automatization
+	load params
+	pre-acq
+	compute
+	start / stop
+	change delay
+	change name
+
+DFG
+
+2 channels
+
+dfr from references. 
+
+Allow loading params from previous acquisition
+	(button to save a good param set, menu to retreive from saved) 
+
+Output 4 rather than 2 buffers, allow a wider choice of signals
+	Signals wish list:
+		The 4 ref signals
+		The 2 phase difs 
+
+Pre-acquisition mode with live update 
+	with the ability to live change some params
+		fast correction signs
+		self corr template choice
+
+python code / interface
+		try reconnect to reconnect when TCP is lost
+		make the TCP connection when starting acquisition / processing
+		retreive / compute / display filters
+		Multiple choice menu to display several signals
+		Add a new panel for the 'live' pre-acq mode
+
+General	
+	make the matlab computation of DCS parameters more automatic
+	the parameters that are 'difficult' to compute each time should be avail on the interface
+			example: the IGM filter and template
+
+
+Mex files for kernels
+

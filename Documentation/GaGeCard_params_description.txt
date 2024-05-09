@@ -1,0 +1,43 @@
+The file gageCard_params.json in the "parameters" folder of the python interface code is loaded automatically when the interface is started.
+You can edit and save it using the 'GaGe Parameters' panel in the python interface. 
+
+Normally, changing these paramaters should seldomly be needed, once a specific card is setup.
+
+This json replaces the .ini file used in gage coding examples. In fact, the C application  will write a proper GaGe ini file from this json
+
+All json parameter files are saved with acquisition data in /BasePath/datePath/fileName (see A Priori parameters)
+
+This file describes the meaning of each parameter expected in this "gageCard_params.json" file
+as well as the default values used as of March 2024, with a CSE161G4-LR card
+check you card manual for allowed values 
+
+The lower you go in the list, the more you should question if you should really modify this parameter
+
+
+	"nb_pts_per_buffer":	40e6			Total number of points per buffer returned by gage card here, with 4 channels, we have10e6 pts per channel (min 20e6 max 60e6)
+							This is what sets the number of igm per buffer, should be set to have at least 10 IGMs per buffer
+	"segment_size":		40e6			Nb of wanted points per channel (pre-acq and RAW data acquisition, automatically set to -1 for real-time processing) MAX 2e9
+							Here we would, in pre or RAW acquistion, receive 4 buffers of 10e6 pts per channel
+							In real-time processing, infinite (-1) buffers of 10e6 pts per channel
+
+	"nb_channels":		4,			Number of channels used for this acquisition
+	"sampling_rate_Hz":	200e6,			Sampling rate for this acqustion
+
+	"external_clock":	0,			Is the data sampled using an internal (0) or external (1) clock (not yet implemented)
+	"channel1_range_mV":	480,			Input range, for channel 1
+	"channel1_coupling":	"DC",			DC ou AC coupling, channel 1
+	"channel1_impedance":	50,			Input impedance, channel 1
+	"channel2_range_mV":	480,
+	"channel2_coupling":	"DC",
+	"channel2_impedance":	50,
+	"channel3_range_mV":	480,
+	"channel3_coupling":	"DC",
+	"channel3_impedance":	50,
+	"channel4_range_mV":	480,
+	"channel4_coupling":	"DC",
+	"channel4_impedance":	50,
+	"trigger_level":	0,			Trigger level, that would mean 0 V
+	"trigger_source":	1,			Trigger source, here on channel 1  should we put none ? 
+	"nb_bytes_per_sample":	2,			16 bits (2 bytes) are sent for each measured sample. 
+	"ref_clock_10MHz": 0				10 MHz reference clock, gage card locks to it with its PLL
+

@@ -1,0 +1,36 @@
+The parameters in computed_params.json are computed by a compiled Matlab script (compute_DCS_params_GPU)
+called by the C application upon receiving the proper sequence of TCP commands for pre-acquistion and compute parameters.
+
+They are returned via TCP to the python interface, mostly for display and info to the user
+Most of these parameters should not be modified by the user and currently no modification is actually supported
+
+In the future, changing the signs (conjugates) will be supported.
+
+  "conjugateCW1_C1": 		1,				Signs for the phase combinations are impplemented by conjugating exp(j*phi)				
+  "conjugateCW1_C2": 		0,				First two are for each comb / CW beatnotes
+  "conjugateCW2_C1": 		0,				Last two are for CEO beatnotes (2 CWs referencing coming in the future)
+  "conjugateCW2_C2": 		1,
+  "conjugateDfr1": 		0,				These are for the computation of N*dfr								
+  "conjugateDfr2": 		1,				(see algo flow chart)
+
+  "dfr": 			805.43770435811928,		Actual computed dfr
+  "ptsPerIGM": 			248312,				nb of points per IGM
+  "ptsPerIGM_sub": 		248312.18965517241,		
+  "nb_pts_template": 		911,				Nb of points in cross correlation template
+  "max_value_template": 	13632.842313868885,		Max of xcorr in pre acquisition
+  "chirp_factor": 		4.6448709217393906,		Amplitude ratio between chirped / un chirped IGMs
+  "xcorr_factor_mV":	        7.468837917394346e-09		Factor to transform the xcorr amplitude to mV peak amplitude
+  "xcorr_threshold_low": 	1.908636368393366E+8,		min value of xcorr for which we keep IGMs (smaller are discarded), from thresholds in a priori params, in mvolts
+  "xcorr_threshold_high": 	1.0096686388800909E+11,		min value of xcorr for which we keep IGMs (larger are discarded)
+  "dfr_unwrap_factor": 		25.131980535728367,		Factor to retrieve the true N*dfr of the references used		
+  "slope_self_correction": 	0,				Factor to bring the center of mass near 0 Hz when no phase projection is used
+  "projection_factor": 		-0.021565511088480711,		Factor to bring the projection wavelength asked by the user to 0 Hz
+  "references_offset_pts": 	0,				Number of points offset between the references and the IGMs (1 value for all references for now)
+  	
+Used internally in the C++ application during the real-time acquisition or post-processing
+
+  "data_absolute_path": 	"C:\\GPU_acquisition\\Post_processing\\20240311_20h23m26s\\Input_data\\post_processing_data.bin",
+  "templateZPD_path": 		"C:\\GPU_acquisition\\Post_processing\\20240311_20h23m26s\\Input_data\\templateZPD.bin",
+  "templateFull_path": 		"C:\\GPU_acquisition\\Post_processing\\20240311_20h23m26s\\Input_data\\template_full_IGM.bin",
+  "filters_coefficients_path": 	"C:\\GPU_acquisition\\Post_processing\\20240311_20h23m26s\\Input_data\\filters_coefficients_32_tap.bin"
+

@@ -1,0 +1,37 @@
+Install Microsoft Visual 
+Install CUDA	(needs to be installed AFTER visual)
+Install GaGe cardsoftware
+
+create project
+
+Enable CUDA extensions in project 
+	right click on project name ... build dependencies ... Build Customizations...
+	Select the proper CUDA extension according to latest install
+
+Add Compuscope to header search path
+	$(GageDir)\include
+	$(GageDir)\CompuScope C SDK\C Common
+
+	or  (if The CompuScpope SDK is copied in the project root)
+	..\CompuScope\include
+	..\CompuScope\CompuScope C SDK\C Common
+
+	to project header search path 
+		(in project properties ... C++ additionnal include header directories)
+
+	 The first is such that the compuscope (CsSsm.lib) library functions prototype are defined
+	 The second appear to be needed for CsAppSupport.lib, but it is strange that headers are not in <include> folder
+
+Add Compusope to library search path
+	$(GageDir)\lib64  OR  ..\CompuScope\lib64
+
+	in properties .. linker .. general .. additonnal libray directories
+
+Actually add libraries to the project
+	CsAppSupport.lib
+	CsSsm.lib 
+
+	in project properties .. linker .. input .. additionnal dependencies
+
+Finally, for -some reason- the functions of CsSdkMisc.c  are not in the library, so this one needs to be added to the project
+these are only functions to display messages.
