@@ -373,3 +373,4 @@ FodyWeavers.xsd
 /C_app_working_directory/temp/computed_params.json
 /python_interface/Xcorr_records/data_xcorr_2024-05-09_10-43-37.bin
 /python_interface/Xcorr_records
+/DCS_GPU_Real_Time_C_code/temp

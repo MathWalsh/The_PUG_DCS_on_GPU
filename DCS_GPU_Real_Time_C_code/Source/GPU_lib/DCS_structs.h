@@ -273,7 +273,6 @@ struct DCSDeviceStatus {
 	int* index_max_blocks_ptr;             // Index of the maximum in a block to find the maximum of the second IGM
 	float* max_val_blocks_ptr;           // Value of the maximum in a block to find the maximum of the second IGM
 	int* maxIGMInterval_selfCorrection_ptr;
-
 	// Variables for cuSOlver to compute spline coefficients in compute_SelfCorrection_GPU	
 	cusolverDnHandle_t	cuSolver_handle;			// Handle for cuSolve
 	double* d_h;
@@ -282,6 +281,7 @@ struct DCSDeviceStatus {
 	int* devInfo;
 	int lwork;
 
+	double* ptsPerIGM_first_IGMs_ptr;
 	// Constructor
 	DCSDeviceStatus()
 		:
@@ -325,7 +325,8 @@ struct DCSDeviceStatus {
 		d_D(nullptr),
 		d_work(nullptr),
 		devInfo(nullptr),
-		lwork(0)
+		lwork(0),
+		ptsPerIGM_first_IGMs_ptr(nullptr)
 
 	{
 		// Constructor body (if needed)

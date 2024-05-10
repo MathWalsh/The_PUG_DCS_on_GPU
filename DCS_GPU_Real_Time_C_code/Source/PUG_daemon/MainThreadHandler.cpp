@@ -21,8 +21,9 @@
 #define debugXCORR_buffers false
 
 
-//Initialize the singleton instance
-std::unique_ptr<MainThreadHandler> MainThreadHandler::instance = nullptr;
+// Initialize the static instance pointer
+MainThreadHandler* MainThreadHandler::instance = nullptr;
+
 
 /***************************************************************************************************
 ****************************************************************************************************/
@@ -39,9 +40,6 @@ MainThreadHandler::MainThreadHandler(std::string DCSParams, std::string GaGePara
 	GageInitFilt = GaGeParamsFile;
 	temp_path = TempFolderPath;
 
-	registerSignalHandlers();
-
-
 	DWORD fileAttr = GetFileAttributesA(temp_path.c_str()); 
 	if (fileAttr == INVALID_FILE_ATTRIBUTES) {
 		// Folder does not exist, attempt to create it
@@ -53,7 +51,18 @@ MainThreadHandler::MainThreadHandler(std::string DCSParams, std::string GaGePara
 
 	if(debugXCORR_buffers)		// set to true to debug xcor signal in python app
 		setBufferX_signal(xcorr_data, 10 * 3 * 40 * sizeof(float));
-	
+
+	// Set the static instance pointer to this instance
+	instance = this;
+	// Register the static console control handler
+	if (!SetConsoleCtrlHandler(ConsoleCtrlHandlerStatic, TRUE)) {
+		DWORD errorCode = GetLastError();
+		printf("Failed to register console control handler. Error Code: %lu\n", errorCode);
+	}
+
+
+	BOOL error = false;
+	// Take control of the card when the application opens
 	try {
 		AcquisitionCard.InitializeDriver();
 		AcquisitionCard.GetFirstSystem();
@@ -61,72 +70,54 @@ MainThreadHandler::MainThreadHandler(std::string DCSParams, std::string GaGePara
 	}
 	catch (std::exception& except)
 	{
+		error = true;
 		std::cout << "Could not find GaGe Card:  " << except.what() << "\n";
-		while (true)
-		{
-			std::cout << "Please close the application and connect your GageCard properly\n";
-			Sleep(5000); // Adjust time as needed
-		}
+		std::cout << "Please close the application and connect your GageCard properly if you want to do real time acquisitions.\n";
 	}
 
+	// Make sure that the card has the streamin option
 	try {
-		AcquisitionCard.VerifyExpertStreaming();
+		if (error == false)
+			AcquisitionCard.VerifyExpertStreaming();
 	}
 	catch (std::exception& except)
 	{
+		error = true;
 		std::cout << "Your Gage card does not support streaming:  " << except.what() << "\n";
-		while (true)
-		{
+		std::cout << "Please close the application and connect a Gage card with the expert streaming option if you want to do real time acquisitions.\n ";
 
-			std::cout << "Please close the application and connect a Gage card with the expert streaming option.\n ";
-			Sleep(5000); // Adjust time as needed
-		}
 	}
+
+	// Make sure that we can allocate the streaming buffer
 	try {
-		
-		AcquisitionCard.AllocateStreamingBuffer(1, default_StmBuffer_size_bytes);
+		if (error == false)
+			AcquisitionCard.AllocateStreamingBuffer(1, default_StmBuffer_size_bytes);
 
 	}
 	catch (std::exception& except)
 	{
 		std::cout << "Could not allocate streaming buffer on the Gage Card:  " << except.what() << "\n";
-		while (true)
-		{
+		std::cout << "Please close the application and reboot your system to refresh the RAM of the PC if you want to do real time acquisitions.. The Gage streaming buffer needs contiguous memory, and it was unable to access enough memory.\n ";
 
-			std::cout << "Please close the application and reboot your system to refresh the RAM of the PC. The Gage streaming buffer needs contiguous memory, and it was unable to access enough memory.\n ";
-			Sleep(5000); // Adjust time as needed
-		}
 	}
-
 }
 
 
-MainThreadHandler& MainThreadHandler::getInstance() {
 
-	return *instance;
-}
-
-void MainThreadHandler::signalHandler(int signal) {
-	std::cout << "Received signal: " << signal << std::endl;
-	MainThreadHandler::getInstance().cleanup();
-	MainThreadHandler::getInstance().quit();
-	std::exit(signal);
-}
-
-void MainThreadHandler::registerSignalHandlers() {
-	std::signal(SIGINT, MainThreadHandler::signalHandler);
-	std::signal(SIGTERM, MainThreadHandler::signalHandler);
-#ifdef _WIN32
-	std::signal(SIGBREAK, MainThreadHandler::signalHandler);
-#endif
-	std::cout << "Signal handlers registered." << std::endl;
-}
-
-
-MainThreadHandler::~MainThreadHandler() {
-	std::cout << "MainThreadHandler destructor called." << std::endl;
-	cleanup();
-	Sleep(2000);
+// Static console control handler function
+BOOL WINAPI MainThreadHandler::ConsoleCtrlHandlerStatic(DWORD dwType) {
+	printf("ConsoleCtrlHandlerStatic\n");
+	if (dwType == CTRL_CLOSE_EVENT) {
+		// Perform necessary cleanup
+		// Since this is a static method, it can't directly access instance members.
+		// You'll need a static way to access your instance from here if you need to call non-static methods.
+		printf("Cleaning up and quitting the application....\n");
+		instance->cleanup();
+		Sleep(2000); // Adjust time as needed
+		instance->quit(); // Call the quit method on the current instance
+		return TRUE;
+	}
+	return FALSE;
 }
 
 void MainThreadHandler::setLastActivityToNow()
@@ -146,7 +137,8 @@ void MainThreadHandler::checkActivity()
 
 	if (elapsedSeconds > maxInactivityHours * 3600)
 	{
-		instance->cleanup();
+
+		instance->cleanup(); // Call the quit method on the current instance
 		Sleep(2000); // Adjust time as needed
 		instance->quit(); // Call the quit method on the current instance
 	}
@@ -908,6 +900,19 @@ int MainThreadHandler::startProcessingFromDisk()
 
 int MainThreadHandler::startPreAcquisition()
 {
+
+	try																			//  Connects to and configure Gage card
+	{
+		if (AcquisitionCard.GetSystemHandle() == NULL) {
+			AcquisitionCard.InitializeDriver();
+		}
+	}
+	catch (std::exception& except)
+	{
+			std::cout << "Could not initialize and configure GaGe Card:  " << except.what() << "\n";
+
+			return -1;
+	}
 	if (threadControl.AcquisitionStarted)							// Do nothing if we already acquire or process something
 	{
 		std::cout << "Processing Thread already running" << std::endl;
@@ -1028,6 +1033,19 @@ int MainThreadHandler::startPreAcquisition()
 
 int MainThreadHandler::startStreamToFile()
 {
+	try																			//  Connects to and configure Gage card
+	{
+		if (AcquisitionCard.GetSystemHandle() == NULL) {
+			AcquisitionCard.InitializeDriver();
+		}
+	}
+	catch (std::exception& except)
+	{
+		std::cout << "Could not initialize and configure GaGe Card:  " << except.what() << "\n";
+
+		return -1;
+	}
+
 	if (threadControl.AcquisitionStarted)							// Do nothing if we already acquire or process something
 	{
 		std::cout << "Processing Thread already running" << std::endl;
@@ -1397,6 +1415,18 @@ void MainThreadHandler::CheckCreateDirectoryResult(bool result, const std::strin
 int MainThreadHandler::startRealTimeAcquisition_Processing()
 {
 
+	try																			//  Connects to and configure Gage card
+	{
+		if (AcquisitionCard.GetSystemHandle() == NULL) {
+			AcquisitionCard.InitializeDriver();
+		}
+	}
+	catch (std::exception& except)
+	{
+		std::cout << "Could not initialize and configure GaGe Card:  " << except.what() << "\n";
+
+		return -1;
+	}
 
 	processing_choice = RealTimeAcquisition_Processing;
 
@@ -1655,7 +1685,7 @@ void MainThreadHandler::quit()
 	//srv.stop();				// stopping tcp server
 
 	clock_t start = clock();
-	
+
 	//service.reset();
 	//while (service.poll());
 

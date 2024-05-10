@@ -119,6 +119,9 @@
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
       <AdditionalManifestDependencies>%(AdditionalManifestDependencies)</AdditionalManifestDependencies>
+      <UACUIAccess>false</UACUIAccess>
+      <AllowIsolation>true</AllowIsolation>
+      <EnableUAC>true</EnableUAC>
     </Link>
     <CudaCompile>
       <AdditionalCompilerOptions>

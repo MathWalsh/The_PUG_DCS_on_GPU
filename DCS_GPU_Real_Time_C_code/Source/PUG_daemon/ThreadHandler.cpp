@@ -1526,13 +1526,13 @@ void ThreadHandler::AllocateGPUBuffers()
 	}
 	cudaMemset(DcsDStatus.xcorr_data_out_GUI_ptr, 0, 5 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(double));
 
+
 	cudaStatus = cudaMalloc((void**)&DcsDStatus.maxIGMInterval_selfCorrection_ptr, sizeof(int));
 	if (cudaStatus != cudaSuccess) {
 		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for maxIGMInterval_selfCorrection_ptr: %s\n", cudaGetErrorString(cudaStatus));
 		ErrorHandler(cudaStatus, errorString, ERROR_);
 	}
 	cudaMemset(DcsDStatus.maxIGMInterval_selfCorrection_ptr, 0, sizeof(int));
-
 
 	// Variables for cuSOlver to compute spline coefficients in compute_SelfCorrection_GPU	
 	// This is to compute the spline coefficients
@@ -1573,7 +1573,14 @@ void ThreadHandler::AllocateGPUBuffers()
 		ErrorHandler(cudaStatus, errorString, ERROR_);
 	}
 
+	cudaDeviceSynchronize();
 
+    cudaStatus = cudaMalloc((void**)&DcsDStatus.ptsPerIGM_first_IGMs_ptr, 3 * sizeof(double));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for dfr_first_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.ptsPerIGM_first_IGMs_ptr, 0, 3 * sizeof(double));
 
 	// Raw data buffers
 

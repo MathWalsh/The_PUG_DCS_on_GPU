@@ -611,6 +611,7 @@ void GaGeCard_interface::ReleaseGageCard()
 	{
 		printf("Releasing gage card...\n");
 		CsFreeSystem(GaGe_SystemHandle);	// we free the system for other users
+		GaGe_SystemHandle = NULL;
 	}
 }
 
