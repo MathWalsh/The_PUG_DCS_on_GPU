@@ -1,4 +1,4 @@
-function [template, templateFull, phi, slope, ptsPerIGM_sub, true_locs] = Find_correction_parameters(IGMs, ptsPerIGM, fshiftIGMs, winHW)
+function [template, templateFull, phi, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(IGMs, ptsPerIGM, fshiftIGMs, winHW)
 
 %% Pre-condition the signal
 
@@ -157,6 +157,15 @@ locs = locs([1,idxlocs]);
 
 
 locs = locs - winHW;
+
+for i=1:numel(locs)
+    idx = locs(i)-(numel(MF)-1)/2:locs(i)+(numel(MF)-1)/2;
+    [~, idxmax(i)] = max(abs(IGMs(idx)));
+    % dist_max(i) = (numel(MF)-1)/2 - idxmax(i);
+end
+
+nb_pts_max_xcorr = round(mean(idxmax(i)));
+
 
 IGM1_xc = xcorr(template,'coeff');  %Normalizes the sequence so that the autocorrelations at zero lag equal 1
 IGM1_xc = IGM1_xc(n-winHW:n+winHW);

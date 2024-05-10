@@ -28,7 +28,7 @@
 #include <system_error> // For std::system_error
 #include <chrono>
 #include <ctime>
-
+#include <csignal>
 #include "TCP_Server.h"
 #include "DCSprocessingHandler.h"
 #include "CUDA_GPU_Interface.h"
@@ -93,18 +93,31 @@ private:
 	
 	std::string compute_executable_name = "compute_DCS_params_GPU.exe";
 
-	static MainThreadHandler* instance; // Static instance pointer
+	//static MainThreadHandler* instance; // Static instance pointer
 	std::chrono::time_point<std::chrono::system_clock> lastActivityTime;
+
+	uint32_t default_StmBuffer_size_bytes = 160e6;
 
 	void setLastActivityToNow();
 	void checkActivity();
 
+	//Register signal handlers
+	static void registerSignalHandlers();
+
+	//Singleton instance storage
+	static std::unique_ptr<MainThreadHandler> instance;
+
+
 public:
 
 	MainThreadHandler(std::string DCSParams, std::string GaGeParamsFile, std::string TempFolderPath, uint16_t port);		// Constructor
-	//~MainThreadHandler();																			// Destructor
+
+	//Singleton instance access
+	static MainThreadHandler& getInstance();
+	//Static signal handler method
+	static void signalHandler(int signal);
+	~MainThreadHandler();																			// Destructor
 	
-	static BOOL WINAPI ConsoleCtrlHandlerStatic(DWORD dwType);
 
 	void AllocateDisplaySignalBuffers(int size);		// Allocates the display signal buffers to the right size, to bt updated
 

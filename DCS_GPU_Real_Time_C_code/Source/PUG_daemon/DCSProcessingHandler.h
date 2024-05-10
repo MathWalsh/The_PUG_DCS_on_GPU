@@ -75,8 +75,8 @@ public:
 
 	void fillStructFrom_apriori_paramsJSON();										// populates the params struct from the apriori params json object
 	void fillStructFrom_computed_paramsJSON();										// populates the params struct from the computed params json object
-	void fillStructFrom_gageCard_paramsJSON();										// populates the params struct from the computed params json object
-	void fillStructFromJSONs();														// Calls all three previous functions
+	void fillStructFrom_gageCard_paramsJSON(uint32_t default_StmBuffer_size_bytes);										// populates the params struct from the computed params json object
+	//void fillStructFromJSONs();														// Calls all three previous functions
 
 	void modify_DCSCONFIG_field(const char* field, const void* value);
 

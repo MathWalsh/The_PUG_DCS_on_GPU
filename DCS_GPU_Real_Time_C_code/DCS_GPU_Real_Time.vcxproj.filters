@@ -9,10 +9,6 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="Source Files\CJSON">
       <UniqueIdentifier>{6392b4b0-4805-4f44-93c6-f9deba47dc36}</UniqueIdentifier>
     </Filter>
@@ -24,6 +20,9 @@
     </Filter>
     <Filter Include="Header Files\PUG_headers">
       <UniqueIdentifier>{d6baa4bd-0a1c-4ffc-920b-251dcecfabb9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource files">
+      <UniqueIdentifier>{6adf9ba8-bedb-4ff7-a181-df1eff72ac5e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -91,6 +90,9 @@
     </ClInclude>
     <ClInclude Include="Source\GPU_lib\DCS_structs.h">
       <Filter>Header Files\GPU_headers</Filter>
+    </ClInclude>
+    <ClInclude Include="resource1.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

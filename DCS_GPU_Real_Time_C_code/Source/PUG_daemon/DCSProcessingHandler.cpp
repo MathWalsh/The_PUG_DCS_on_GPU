@@ -229,14 +229,14 @@ const char* DCSProcessingHandler::printAndReturnJsonData(cJSON* jsonDataPtr)
 }
 
 // Need to mutex lock before calling this function
-void DCSProcessingHandler::fillStructFromJSONs()
-{
-   
-    fillStructFrom_apriori_paramsJSON();
-    fillStructFrom_computed_paramsJSON();									
-    fillStructFrom_gageCard_paramsJSON();
-
-}
+//void DCSProcessingHandler::fillStructFromJSONs()
+//{
+//   
+//    fillStructFrom_apriori_paramsJSON();
+//    fillStructFrom_computed_paramsJSON();									
+//    fillStructFrom_gageCard_paramsJSON();
+//
+//}
 
 // Need to mutex lock before calling this function  
 void DCSProcessingHandler::fillStructFrom_computed_paramsJSON()
@@ -356,6 +356,10 @@ void DCSProcessingHandler::fillStructFrom_computed_paramsJSON()
             DcsCfg.references_offset_pts = item->valueint;
         }
 
+        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "IGMs_max_offset_xcorr");
+        if (cJSON_IsNumber(item)) {
+            DcsCfg.IGMs_max_offset_xcorr = item->valueint;
+        }
     }
 }
 
@@ -491,6 +495,13 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "max_delay_xcorr");
         if (cJSON_IsNumber(item)) {
             DcsCfg.max_delay_xcorr = item->valueint;
+            if (DcsCfg.max_delay_xcorr <= 0) { // Put a minimum of points
+                DcsCfg.max_delay_xcorr = 10; 
+            }
+            else if (DcsCfg.max_delay_xcorr % 2 == 1) { // Make sure the max delay is an even number
+                DcsCfg.max_delay_xcorr += 1;
+            }
+              
         }
 
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "nb_pts_interval_interpolation");
@@ -506,7 +517,7 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
 }
 
 // Need to mutex lock before calling this function
-void DCSProcessingHandler::fillStructFrom_gageCard_paramsJSON()
+void DCSProcessingHandler::fillStructFrom_gageCard_paramsJSON(uint32_t default_StmBuffer_size_bytes)
 {
 
     cJSON* jsonDataPtr = gageCard_params_jsonDataPtr;
@@ -543,6 +554,13 @@ void DCSProcessingHandler::fillStructFrom_gageCard_paramsJSON()
         if (cJSON_IsNumber(item)) {
             DcsCfg.nb_pts_per_buffer = item->valueint;
             if (DcsCfg.nb_bytes_per_sample) {
+                if (DcsCfg.nb_pts_per_buffer > default_StmBuffer_size_bytes / DcsCfg.nb_bytes_per_sample) {
+                    DcsCfg.nb_pts_per_buffer = default_StmBuffer_size_bytes / DcsCfg.nb_bytes_per_sample;
+                    //item->valueint = *(int*)default_StmBuffer_size_bytes / DcsCfg.nb_bytes_per_sample;
+                    item->valuedouble = DcsCfg.nb_pts_per_buffer;
+                    item->valueint = DcsCfg.nb_pts_per_buffer;
+                    
+                }
                 DcsCfg.nb_bytes_per_buffer = DcsCfg.nb_pts_per_buffer * DcsCfg.nb_bytes_per_sample;
             }
         }
@@ -551,6 +569,12 @@ void DCSProcessingHandler::fillStructFrom_gageCard_paramsJSON()
         if (cJSON_IsNumber(item)) {
             DcsCfg.nb_bytes_per_sample = item->valueint;
             if (DcsCfg.nb_pts_per_buffer) {
+                if (DcsCfg.nb_pts_per_buffer > default_StmBuffer_size_bytes / DcsCfg.nb_bytes_per_sample) {
+                    DcsCfg.nb_pts_per_buffer = default_StmBuffer_size_bytes / DcsCfg.nb_bytes_per_sample;
+                    item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "nb_pts_per_buffer");
+                    item->valuedouble = DcsCfg.nb_pts_per_buffer;
+                    item->valueint = DcsCfg.nb_pts_per_buffer;
+                }
                 DcsCfg.nb_bytes_per_buffer = DcsCfg.nb_pts_per_buffer * DcsCfg.nb_bytes_per_sample;
             }
       
@@ -721,6 +745,7 @@ bool DCSProcessingHandler::VerifyDCSConfigParams() {
     else{ //TO DO
 
         // GageCard params
+
         if (DcsCfg.nb_channels != 4 && DcsCfg.nb_channels != 2 && DcsCfg.nb_channels != 1) {
             ErrorHandler(0, "Provide a valid nb_channels (1, 2 or 4) to the gageCard params\n", WARNING_);
         }
@@ -771,6 +796,7 @@ bool DCSProcessingHandler::VerifyDCSConfigParams() {
            
 
         }
+
 
         // Apriori params
 

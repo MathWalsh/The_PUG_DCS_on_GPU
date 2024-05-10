@@ -105,14 +105,14 @@ fprintf("Finding accurate dfr...\n");
 % Filtering IGMs
 dataF(:,1) = conv(data(:,1),b(:,1),'same');
 
-[idxStart, idxEnd, dfr] = Find_dfr(dataF(:,1), apriori_params.dfr_approx_Hz, fs, ...
+[idxStart, idxEnd, dfr, nb_pts_max_xcorr] = Find_dfr(dataF(:,1), apriori_params.dfr_approx_Hz, fs, ...
     apriori_params.half_width_template);
 ptsPerIGM = round(fs/dfr/2)*2;
 
 fprintf("dfr found : %.4f Hz\n", dfr);
 %% Compute template if no references
 if apriori_params.nb_phase_references == 0
-    [template, templateFull ,phiZPD, normalized_phase_slope, ptsPerIGM_sub, ~] = Find_correction_parameters(dataF(:,1), ptsPerIGM, ...
+    [template, templateFull ,phiZPD, normalized_phase_slope, ptsPerIGM_sub, ~, nb_pts_max_xcorr] = Find_correction_parameters(dataF(:,1), ptsPerIGM, ...
         'cm', apriori_params.half_width_template);
     % Unused variables in this case, using default values
     projection_factor = 0;
@@ -259,9 +259,9 @@ else
             IGMsFPC1 = dataF(:,1).*exp(1j*phiFPC);
             IGMsFPC2 = dataF(:,1).*exp(-1j*phiFPC);
 
-            [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, ~] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
+            [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, ~, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
-            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, ~] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
+            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, ~, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
 
             % Minimum variance means we should have the right sign (could be wrong
@@ -278,6 +278,7 @@ else
                 IGMsFPC = IGMsFPC1;
                 normalized_phase_slope = normalized_phase_slope1;
                 ptsPerIGM_sub = ptsPerIGM_sub1;
+                nb_pts_max_xcorr = nb_pts_max_xcorr1;
 
             else
 
@@ -296,6 +297,7 @@ else
                 normalized_phase_slope = normalized_phase_slope2;
                 ptsPerIGM_sub = ptsPerIGM_sub2;
                 phiFPC = -phiFPC;
+                nb_pts_max_xcorr = nb_pts_max_xcorr2;
 
             end
         else
@@ -311,9 +313,9 @@ else
             IGMsFPC1 = dataF(:,1).*exp(1j*phiFPC);
             IGMsFPC2 = dataF(:,1).*exp(-1j*phiFPC);
 
-            [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, ~] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
+            [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, ~, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
-            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, ~] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
+            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, ~, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
 
             % Minimum variance means we should have the right sign (could be wrong
@@ -330,6 +332,7 @@ else
                 IGMsFPC = IGMsFPC1;
                 normalized_phase_slope = normalized_phase_slope1;
                 ptsPerIGM_sub = ptsPerIGM_sub1;
+                nb_pts_max_xcorr = nb_pts_max_xcorr1;
 
             else
 
@@ -347,6 +350,7 @@ else
                 normalized_phase_slope = normalized_phase_slope2;
                 ptsPerIGM_sub = ptsPerIGM_sub2;
                 phiFPC = -phiFPC;
+                nb_pts_max_xcorr = nb_pts_max_xcorr2;
 
             end
 
@@ -470,11 +474,11 @@ else
 
             % We have two possibilities left, we try both possibilities and take
             % the one with the minimum variance on the locs positions
-            [template1, templateFull1, phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1] = Find_correction_parameters(IGMsPC(:,1), ...
+            [template1, templateFull1, phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsPC(:,1), ...
                 ptsPerIGM, 'cm', apriori_params.half_width_template);
             std_locs(1) = var(diff(true_locs1)-mean(diff(true_locs1))) ;
 
-            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2] = Find_correction_parameters(IGMsPC(:,2), ...
+            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsPC(:,2), ...
                 ptsPerIGM, 'cm', apriori_params.half_width_template);
             std_locs(2) = var(diff(true_locs2)-mean(diff(true_locs2))) ;
 
@@ -488,6 +492,7 @@ else
                 template = template1;
                 templateFull = templateFull1;
                 phidfr = phidfr(:,1);
+                nb_pts_max_xcorr = nb_pts_max_xcorr1;
             else
                 x=2;
                 % normalized_phase_slope = normalized_phase_slope + normalized_phase_slope2;
@@ -497,6 +502,7 @@ else
                 template = template2;
                 templateFull = templateFull2;
                 phidfr = phidfr(:,2);
+                nb_pts_max_xcorr = nb_pts_max_xcorr2;
             end
 
             % Update other parameters
@@ -578,12 +584,12 @@ else
                 IGMsProj1 = dataF(:,1).*exp(1j*(phiFPC+phidfr*projection_factor1));
                 IGMsProj2 = dataF(:,1).*exp(1j*(phiFPC+phidfr*projection_factor2));
 
-                [~, ~,phiZPD1, slope1, ptsPerIGM_sub1, true_locs1] = Find_correction_parameters(IGMsProj1, ptsPerIGM, ...
+                [~, ~,phiZPD1, slope1, ptsPerIGM_sub1, true_locs1, ~] = Find_correction_parameters(IGMsProj1, ptsPerIGM, ...
                     0, apriori_params.half_width_template);
                 varPhi1 = var(detrend(phiZPD1(2:end)));
                 varLocs1 = var(diff(true_locs1)-mean(diff(true_locs1)));
                 freqCM1 = abs(slope1/2/pi*fs);
-                [~, ~,phiZPD2, slope2, ptsPerIGM_sub2, true_locs2] = Find_correction_parameters(IGMsProj2, ptsPerIGM, ...
+                [~, ~,phiZPD2, slope2, ptsPerIGM_sub2, true_locs2, ~] = Find_correction_parameters(IGMsProj2, ptsPerIGM, ...
                     0, apriori_params.half_width_template);
                 varPhi2 = var(detrend(phiZPD2(2:end)));
                 varLocs2 = var(diff(true_locs2)-mean(diff(true_locs2)));
@@ -625,7 +631,7 @@ else
                     phidfrProj = phidfr*(projection_factor);
                     phiTotProj = phiFPC+phidfrProj;
                     IGMsProj =dataF(:,1).*exp(1j*phiTotProj);
-                    [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs] = Find_correction_parameters( IGMsProj, ptsPerIGM, ...
+                    [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters( IGMsProj, ptsPerIGM, ...
                         0, apriori_params.half_width_template);
 
 
@@ -644,7 +650,7 @@ else
                     slopedfr = polyfit(1:N, phidfrProj, 1);
                     new_grid_ref = slopedfr(2) + ((0:N-1)*slopedfr(1))';
                     IGMsProjR = interp1(phidfrProj, IGMsProj, new_grid_ref, 'linear',0);
-                    [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs] = Find_correction_parameters( IGMsProjR, ptsPerIGM, ...
+                    [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters( IGMsProjR, ptsPerIGM, ...
                         0, apriori_params.half_width_template);
                     normalized_slope_self_corr = polyfit(true_locs(2:end), phiZPD(2:end), 1); % For some reason the first is phase is often wrong
                     projection_factor = projection_factor + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
@@ -778,11 +784,11 @@ else
 
         % We have two possibilities left, we try both possibilities and take
         % the one with the minimum variance on the locs positions
-        [template1, templateFull1, phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1] = Find_correction_parameters(IGMsPC(:,1), ...
+        [template1, templateFull1, phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1, nb_pts_max_xcorr] = Find_correction_parameters(IGMsPC(:,1), ...
             ptsPerIGM, 'cm', apriori_params.half_width_template);
         std_locs(1) = var(diff(true_locs1)-mean(diff(true_locs1))) ;
 
-        [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2] = Find_correction_parameters(IGMsPC(:,2), ...
+        [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2, nb_pts_max_xcorr] = Find_correction_parameters(IGMsPC(:,2), ...
             ptsPerIGM, 'cm', apriori_params.half_width_template);
         std_locs(2) = var(diff(true_locs2)-mean(diff(true_locs2))) ;
 
@@ -837,11 +843,11 @@ xcorr_factor_mV = MaxTemplate/ max_xcorr_template / mv_to_level;
 
 %amplitude_factor_max = apriori_params.maximum_signal_level_threshold_mV * mv_to_level / MaxTemplate; % maximum in level / max template
 %xcorr_threshold_high = (amplitude_factor_max).^2 * max_xcorr_template;
-xcorr_threshold_high = apriori_params.maximum_signal_level_threshold_mV/xcorr_factor_mV
+xcorr_threshold_high = apriori_params.maximum_signal_level_threshold_mV/xcorr_factor_mV;
 
 %amplitude_factor_low = apriori_params.minimum_signal_level_threshold_mV * mv_to_level / MaxTemplate; % minimum in level / max template
 %xcorr_threshold_low = (amplitude_factor_low).^2 * max_xcorr_template;
-xcorr_threshold_low = apriori_params.minimum_signal_level_threshold_mV/xcorr_factor_mV
+xcorr_threshold_low = apriori_params.minimum_signal_level_threshold_mV/xcorr_factor_mV;
 
 if (mod(floor(numel(template)/2),2) == 0)
     templateZPDOut = single(template(1:apriori_params.decimation_factor:end)).';
@@ -895,7 +901,8 @@ computed_params = struct(...
     'dfr_unwrap_factor', dfr_unwrap_factor, ...
     'slope_self_correction', normalized_phase_slope(1),...
     'projection_factor',  projection_factor, ...
-    'references_offset_pts', round(apriori_params.references_total_path_length_offset_m/c*fs));
+    'references_offset_pts', round(apriori_params.references_total_path_length_offset_m/c*fs),...
+    'IGMs_max_offset_xcorr', round(nb_pts_max_xcorr/apriori_params.decimation_factor));
 
 if apriori_params.nb_phase_references == 1
     computed_params.freqCW1_C1_Hz = freqCWs(2);

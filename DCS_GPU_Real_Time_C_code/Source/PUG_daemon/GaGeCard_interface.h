@@ -90,6 +90,7 @@ typedef struct
 	int32	i32SegmentCountHigh;	//!< High patrt of 64-bit segment count. Number of segments per acquisition.
 
 	uInt32 u32SegmentTail_Bytes; // In Streaming mode, some hardware related information are placed at the end of each segment. (Added by MW)
+
 	//!
 } CSACQUISITIONCONFIG_MOD, * PCSACQUISITIONCONFIG_MOD;
 
@@ -110,6 +111,10 @@ typedef struct
 	uInt32*			IdxChannels;
 	uInt32			NptsTot;
 	UINT32			ref_clock_10MHz;
+
+	void* pBuffer1;			// Pointer to stream buffer1
+	void* pBuffer2;			// Pointer to stream buffer2
+
 }CSSTMCONFIG, * PCSSTMCONFIG;
 
 class GaGeCard_interface
@@ -147,6 +152,7 @@ public:
 	
 	int32				Commit();							// Actually send params to card hardware 
 	int32				StartStreamingAcquisition();		// starts the streaming acqusition 
+	int32				StopStreamingAcquisition();		// stops the streaming acqusition 
 
 	int32				RetreiveAcquisitionConfig();		// Retreive from field and populate object variables
 	int32				RetreiveTotalRequestedSamples();	// Ask the card how many samples were requested
@@ -160,8 +166,9 @@ public:
 	void				setStreamComfig(CSSTMCONFIG stmConf);
 	CSSTMCONFIG			getStreamConfig();					// just return values object has.
 
-	int32				AllocateStreamingBuffer(uInt16 nCardIndex, uInt32 u32BufferSizeBytes, PVOID* bufferPtr);
-	int32				FreeStreamBuffer(void* buffer);
+	int32				AllocateStreamingBuffer(uInt16 nCardIndex, uInt32 u32BufferSizeBytes);
+	int32				VerifyExpertStreaming();
+	int32				FreeStreamBuffer();
 
 	
 

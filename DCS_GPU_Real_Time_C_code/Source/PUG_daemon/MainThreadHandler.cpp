@@ -20,8 +20,9 @@
 
 #define debugXCORR_buffers false
 
-// Initialize the static instance pointer
-MainThreadHandler* MainThreadHandler::instance = nullptr;
+
+//Initialize the singleton instance
+std::unique_ptr<MainThreadHandler> MainThreadHandler::instance = nullptr;
 
 /***************************************************************************************************
 ****************************************************************************************************/
@@ -37,8 +38,9 @@ MainThreadHandler::MainThreadHandler(std::string DCSParams, std::string GaGePara
 	DCSParamsFile = DCSParams;
 	GageInitFilt = GaGeParamsFile;
 	temp_path = TempFolderPath;
-	// Set the static instance pointer to this instance
-	instance = this;
+
+	registerSignalHandlers();
+
 
 	DWORD fileAttr = GetFileAttributesA(temp_path.c_str()); 
 	if (fileAttr == INVALID_FILE_ATTRIBUTES) {
@@ -49,29 +51,83 @@ MainThreadHandler::MainThreadHandler(std::string DCSParams, std::string GaGePara
 
 	setLastActivityToNow();
 
-	// Register the static console control handler
-	SetConsoleCtrlHandler(ConsoleCtrlHandlerStatic, TRUE);
-
 	if(debugXCORR_buffers)		// set to true to debug xcor signal in python app
 		setBufferX_signal(xcorr_data, 10 * 3 * 40 * sizeof(float));
 	
-}
-
-
-// Static console control handler function
-BOOL WINAPI MainThreadHandler::ConsoleCtrlHandlerStatic(DWORD dwType) {
-	if (dwType == CTRL_CLOSE_EVENT) {
-		// Perform necessary cleanup
-		// Since this is a static method, it can't directly access instance members.
-		// You'll need a static way to access your instance from here if you need to call non-static methods.
-		instance->cleanup();
-		Sleep(2000); // Adjust time as needed
-		instance->quit(); // Call the quit method on the current instance
-		return TRUE;
+	try {
+		AcquisitionCard.InitializeDriver();
+		AcquisitionCard.GetFirstSystem();
+		AcquisitionCard.RetrieveSystemInfo();
 	}
-	return FALSE;
+	catch (std::exception& except)
+	{
+		std::cout << "Could not find GaGe Card:  " << except.what() << "\n";
+		while (true)
+		{
+			std::cout << "Please close the application and connect your GageCard properly\n";
+			Sleep(5000); // Adjust time as needed
+		}
+	}
+
+	try {
+		AcquisitionCard.VerifyExpertStreaming();
+	}
+	catch (std::exception& except)
+	{
+		std::cout << "Your Gage card does not support streaming:  " << except.what() << "\n";
+		while (true)
+		{
+
+			std::cout << "Please close the application and connect a Gage card with the expert streaming option.\n ";
+			Sleep(5000); // Adjust time as needed
+		}
+	}
+	try {
+		
+		AcquisitionCard.AllocateStreamingBuffer(1, default_StmBuffer_size_bytes);
+
+	}
+	catch (std::exception& except)
+	{
+		std::cout << "Could not allocate streaming buffer on the Gage Card:  " << except.what() << "\n";
+		while (true)
+		{
+
+			std::cout << "Please close the application and reboot your system to refresh the RAM of the PC. The Gage streaming buffer needs contiguous memory, and it was unable to access enough memory.\n ";
+			Sleep(5000); // Adjust time as needed
+		}
+	}
+
 }
 
+
+MainThreadHandler& MainThreadHandler::getInstance() {
+
+	return *instance;
+}
+
+void MainThreadHandler::signalHandler(int signal) {
+	std::cout << "Received signal: " << signal << std::endl;
+	MainThreadHandler::getInstance().cleanup();
+	MainThreadHandler::getInstance().quit();
+	std::exit(signal);
+}
+
+void MainThreadHandler::registerSignalHandlers() {
+	std::signal(SIGINT, MainThreadHandler::signalHandler);
+	std::signal(SIGTERM, MainThreadHandler::signalHandler);
+#ifdef _WIN32
+	std::signal(SIGBREAK, MainThreadHandler::signalHandler);
+#endif
+	std::cout << "Signal handlers registered." << std::endl;
+}
+
+
+MainThreadHandler::~MainThreadHandler() {
+	std::cout << "MainThreadHandler destructor called." << std::endl;
+	cleanup();
+	Sleep(2000);
+}
 
 void MainThreadHandler::setLastActivityToNow()
 {
@@ -305,7 +361,7 @@ void MainThreadHandler::parseTCPCommand(std::list<Connection>::iterator con_hand
 		DcsProcessing.set_gageCard_params_jsonPtr(jsonPtr);
 		// Mutex lock for DCSCONFIG
 		threadControl.sharedMutex.lock();
-		DcsProcessing.fillStructFrom_gageCard_paramsJSON();
+		DcsProcessing.fillStructFrom_gageCard_paramsJSON(default_StmBuffer_size_bytes);
 		threadControl.sharedMutex.unlock();
 
 		// Combine the directory and file name
@@ -803,7 +859,7 @@ int MainThreadHandler::startProcessingFromDisk()
 	}
 	catch (std::exception& except)
 	{
-		std::cout << "Could not initialize and configure CPU Card:  " << except.what() << "\n";
+		std::cout << "Could not initialize and configure GPU Card:  " << except.what() << "\n";
 		//threadControl.AbortThread = TRUE;
 		return -1;
 	}
@@ -893,7 +949,7 @@ int MainThreadHandler::startPreAcquisition()
 	catch (std::exception& except)
 	{
 		std::cout << "Could not initialize and configure GaGe Card:  " << except.what() << "\n";
-		AcquisitionCard.ReleaseGageCard();
+		//AcquisitionCard.ReleaseGageCard();
 		//threadControl.AbortThread = TRUE;
 		return -1;
 	}
@@ -1012,7 +1068,7 @@ int MainThreadHandler::startStreamToFile()
 	catch (std::exception& except)
 	{
 		std::cout << "Could not initialize and configure GaGe Card:  " << except.what() << "\n";
-		AcquisitionCard.ReleaseGageCard();
+		//AcquisitionCard.ReleaseGageCard();
 		//threadControl.AbortThread = TRUE;
 		return -1;
 	}
@@ -1398,7 +1454,7 @@ int MainThreadHandler::startRealTimeAcquisition_Processing()
 	catch (std::exception& except)
 	{
 		std::cout << "Could not initialize and configure GaGe Card:  " << except.what() << "\n";
-		AcquisitionCard.ReleaseGageCard();
+		//AcquisitionCard.ReleaseGageCard();
 		//threadControl.AbortThread = TRUE;
 		return -1;
 	}
@@ -1579,10 +1635,13 @@ void MainThreadHandler::parse_keyboard_input(WORD keycode)
 }
 
 void MainThreadHandler::cleanup() {
-	printf("\nCleaning up acquisition thread...\n");
+	
 	if (threadControl.AcquisitionStarted) {
+		printf("\nCleaning up acquisition thread...\n");
 		threadControl.AbortThread = 1;
 	}
+	AcquisitionCard.FreeStreamBuffer();
+	AcquisitionCard.ReleaseGageCard();
 }
 /***************************************************************************************************
 ****************************************************************************************************/

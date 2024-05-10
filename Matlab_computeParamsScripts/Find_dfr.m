@@ -1,4 +1,4 @@
-function [idxStart, idxEnd, dfr] = Find_dfr(IGMs, dfr,fs, winHW)
+function [idxStart, idxEnd, dfr, nb_pts_max_xcorr] = Find_dfr(IGMs, dfr,fs, winHW)
 
 %% Pre-condition the signal
 
@@ -138,6 +138,13 @@ locs = locs([1,idxlocs]);
 locs = locs - winHW;
 clear IGMs_MF
 
+for i=1:numel(locs)
+    idx = locs(i)-(numel(MF)-1)/2:locs(i)+(numel(MF)-1)/2;
+    [~, idxmax(i)] = max(abs(IGMs(idx)));
+    % dist_max(i) = (numel(MF)-1)/2 - idxmax(i);
+end
+
+nb_pts_max_xcorr = round(mean(idxmax(i)));
 % Finding center of mass of spectrum and removing the linear slope
 IGM1_xc = xcorr(IGMs(idxmid-winHW:idxmid+winHW),'coeff');  %Normalizes the sequence so that the autocorrelations at zero lag equal 1
 IGM1_xc = IGM1_xc(n-winHW:n+winHW);

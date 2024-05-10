@@ -68,9 +68,9 @@ GaGeCard_interface::GaGeCard_interface(std::string initFile) :GaGeCard_interface
 
 int32 GaGeCard_interface::InitializeAndConfigure()
 {
-	i32Status = InitializeDriver();
-	i32Status = GetFirstSystem();
-	i32Status = RetrieveSystemInfo();
+	//i32Status = InitializeDriver();
+	//i32Status = GetFirstSystem();
+	//i32Status = RetrieveSystemInfo();
 	i32Status = ConfigureFromInitFile();
 
 	return i32Status;
@@ -432,37 +432,76 @@ int32 GaGeCard_interface::waitForCurrentDMA(uInt32& u32ErrorFlag,uInt32& u32Actu
 
 }
 
-int32 GaGeCard_interface::AllocateStreamingBuffer(uInt16 nCardIndex,uInt32 u32BufferSizeBytes, PVOID *bufferPtr)
+int32 GaGeCard_interface::AllocateStreamingBuffer(uInt16 nCardIndex,uInt32 u32BufferSizeBytes)
 {
-	i32Status = CsStmAllocateBuffer(GaGe_SystemHandle, nCardIndex, u32BufferSizeBytes, bufferPtr);
+	//i32Status = CsStmAllocateBuffer(GaGe_SystemHandle, nCardIndex, u32BufferSizeBytes, bufferPtr);
 
+
+	i32Status = CsStmAllocateBuffer(GaGe_SystemHandle, nCardIndex, u32BufferSizeBytes, &StreamConfig.pBuffer1);
+	i32Status = CsStmAllocateBuffer(GaGe_SystemHandle, nCardIndex, u32BufferSizeBytes, &StreamConfig.pBuffer2);
 	if (CS_FAILED(i32Status))
 		ErrorHandler("Could not allocate streaming buffer", i32Status);
 
 	return i32Status;
 }
 
-
-
-
-int32 GaGeCard_interface::FreeStreamBuffer(void* buffer)
+int32 GaGeCard_interface::VerifyExpertStreaming()
 {
-	if (buffer) {
-		printf("Releasing gage stream buffer : %p\n", buffer);
+
+	int64 i64ExtendedOptions = 0;
+	uInt32 u32ExpertOption = 0;
+	char szExpert[64];
+	strcpy_s(szExpert, sizeof(szExpert), "Stream");
+
+	u32ExpertOption = CS_BBOPTIONS_STREAM;
+	//Check if selected system supports Expert Stream
+	CsGet(GaGe_SystemHandle, CS_PARAMS, CS_EXTENDED_BOARD_OPTIONS, &i64ExtendedOptions);
+
+	if (i64ExtendedOptions == 0 || u32ExpertOption == 0) {
+		char errorStr[200];
+
+		sprintf_s(errorStr, sizeof(errorStr), _T("Current system does not support Expert %s : App will terminate"), szExpert);
+
+		ErrorHandler(errorStr, CS_MISC_ERROR);
+	}
+
+	return i32Status;
+}
+
+
+int32 GaGeCard_interface::FreeStreamBuffer()
+{
+	if (StreamConfig.pBuffer1) {
+		printf("Releasing gage stream buffer : %p\n", StreamConfig.pBuffer1);
 		try
 		{
-			i32Status = CsStmFreeBuffer(GaGe_SystemHandle, 1, buffer);
+			i32Status = CsStmFreeBuffer(GaGe_SystemHandle, 1, StreamConfig.pBuffer1);
 			if (CS_FAILED(i32Status))
 				ErrorHandler(-1, "Could not release streaming buffer", WARNING_);
 		}
 		catch (std::exception& except)
 		{
 			std::cout << "Can't destroy processing thread properly: " << except.what() << "\n";
-			i32Status = CsStmFreeBuffer(GaGe_SystemHandle, 1, buffer); // try again...
+			i32Status = CsStmFreeBuffer(GaGe_SystemHandle, 1, StreamConfig.pBuffer1); // try again...
 		}
 		
 	}
 		
+	if (StreamConfig.pBuffer2) {
+		printf("Releasing gage stream buffer : %p\n", StreamConfig.pBuffer2);
+		try
+		{
+			i32Status = CsStmFreeBuffer(GaGe_SystemHandle, 1, StreamConfig.pBuffer2);
+			if (CS_FAILED(i32Status))
+				ErrorHandler(-1, "Could not release streaming buffer", WARNING_);
+		}
+		catch (std::exception& except)
+		{
+			std::cout << "Can't destroy processing thread properly: " << except.what() << "\n";
+			i32Status = CsStmFreeBuffer(GaGe_SystemHandle, 1, StreamConfig.pBuffer2); // try again...
+		}
+
+	}
 
 	return i32Status;
 }
@@ -529,9 +568,20 @@ int32 GaGeCard_interface::RetreiveTotalRequestedSamples()
 
 int32 GaGeCard_interface::StartStreamingAcquisition()
 {
+
 i32Status = CsDo(GaGe_SystemHandle, ACTION_START);
 	if (CS_FAILED(i32Status))
 		ErrorHandler("Problem while starting the streaming acquisition", i32Status);
+
+	return i32Status;
+}
+
+int32 GaGeCard_interface::StopStreamingAcquisition()
+{
+
+	i32Status = CsDo(GaGe_SystemHandle, ACTION_ABORT);
+	if (CS_FAILED(i32Status))
+		ErrorHandler("Problem while stopping the streaming acquisition", i32Status);
 
 	return i32Status;
 }
@@ -558,7 +608,10 @@ GaGeCard_interface::~GaGeCard_interface()   // Destructor, cleaning up after our
 void GaGeCard_interface::ReleaseGageCard()
 {
 	if (GaGe_SystemHandle != NULL)			// When the GaGe card object dissappears,
+	{
+		printf("Releasing gage card...\n");
 		CsFreeSystem(GaGe_SystemHandle);	// we free the system for other users
+	}
 }
 
 void GaGeCard_interface::ResetSoftware()

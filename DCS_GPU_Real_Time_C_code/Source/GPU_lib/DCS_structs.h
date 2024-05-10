@@ -102,6 +102,7 @@ typedef struct
 	double slope_self_correction;
 	double projection_factor;
 	int references_offset_pts;
+	int IGMs_max_offset_xcorr;
 
 
 }DCSCONFIG, * PDCSCONFIG;
@@ -272,6 +273,7 @@ struct DCSDeviceStatus {
 	int* index_max_blocks_ptr;             // Index of the maximum in a block to find the maximum of the second IGM
 	float* max_val_blocks_ptr;           // Value of the maximum in a block to find the maximum of the second IGM
 	int* maxIGMInterval_selfCorrection_ptr;
+
 	// Variables for cuSOlver to compute spline coefficients in compute_SelfCorrection_GPU	
 	cusolverDnHandle_t	cuSolver_handle;			// Handle for cuSolve
 	double* d_h;
@@ -315,6 +317,7 @@ struct DCSDeviceStatus {
 		index_max_blocks_ptr(nullptr),
 		max_val_blocks_ptr(nullptr),
 		xcorr_data_out_GUI_ptr(nullptr),
+		maxIGMInterval_selfCorrection_ptr(nullptr),
 
 		// Variables for cuSOlver to compute spline coefficients in compute_SelfCorrection_GPU	
 		cuSolver_handle(nullptr),

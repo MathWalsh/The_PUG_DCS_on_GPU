@@ -39,6 +39,13 @@ void __syncwarp();
 *****  Convolution filters, with hard coded number of taps (16,32,64 or 96) ******/
 //  All the multiplications are hard coded because it seems  to be the fastest way to do the computations...
 
+
+/***** 16 taps ******/				
+
+#define MASK_LENGTH_TOT16 16
+
+
+#ifdef __cplusplus
 /**
  * Perform a FIR filter operation on the GPU.
  *
@@ -59,13 +66,6 @@ void __syncwarp();
  * @param GpuCfg Configuration structure for GPU execution parameters.
  * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
  */
-
-/***** 16 taps ******/				
-
-#define MASK_LENGTH_TOT16 16
-
-
-#ifdef __cplusplus
 extern "C" cudaError_t fir_filter_16_coefficients_GPU(cufftComplex * signals_out, short* signals_in, float* buffer_out, float* buffer_in, cufftComplex * filter_coefficients_CPU, int* signals_channel_index,
 	int sizeIn, int LoopCount, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
 #endif
@@ -76,6 +76,26 @@ extern "C" cudaError_t fir_filter_16_coefficients_GPU(cufftComplex * signals_out
 
 
 #ifdef __cplusplus
+/**
+ * Perform a FIR filter operation on the GPU.
+ *
+ * These functions wrap the CUDA kernel call to process input signals through a FIR filter
+ * It manages memory transfers to the GPU and kernel execution settings.
+ *
+ * @param signals_out Output buffer for the filtered signals.
+ * @param signals_in Input buffer containing the raw signals.
+ * @param buffer_out Output buffer for buffer edge handling.
+ * @param buffer_in Input buffer for buffer edge handling.
+ * @param filter_coefficients_CPU Host-side array of filter coefficients. Only used on the first loop to populate constant memory.
+ * @param signals_channel_index Index array for channel processing.
+ * @param sizeIn Size of the input signal array.
+ * @param LoopCount Current iteration count, controls mask population.
+ * @param streamId CUDA stream for asynchronous operation.
+ * @param cudaStatus Status of CUDA operations, checked after kernel launch.
+ * @param DcsCfg Configuration structure for DCS operation specifics.
+ * @param GpuCfg Configuration structure for GPU execution parameters.
+ * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
+ */
 extern "C" cudaError_t fir_filter_32_coefficients_GPU(cufftComplex * signals_out, short* signals_in, float* buffer_out, float* buffer_in, cufftComplex * filter_coefficients_CPU, int* signals_channel_index,
 	int sizeIn, int LoopCount, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
 #endif
@@ -85,6 +105,26 @@ extern "C" cudaError_t fir_filter_32_coefficients_GPU(cufftComplex * signals_out
 #define MASK_LENGTH_TOT64 64
 
 #ifdef __cplusplus
+/**
+ * Perform a FIR filter operation on the GPU.
+ *
+ * These functions wrap the CUDA kernel call to process input signals through a FIR filter
+ * It manages memory transfers to the GPU and kernel execution settings.
+ *
+ * @param signals_out Output buffer for the filtered signals.
+ * @param signals_in Input buffer containing the raw signals.
+ * @param buffer_out Output buffer for buffer edge handling.
+ * @param buffer_in Input buffer for buffer edge handling.
+ * @param filter_coefficients_CPU Host-side array of filter coefficients. Only used on the first loop to populate constant memory.
+ * @param signals_channel_index Index array for channel processing.
+ * @param sizeIn Size of the input signal array.
+ * @param LoopCount Current iteration count, controls mask population.
+ * @param streamId CUDA stream for asynchronous operation.
+ * @param cudaStatus Status of CUDA operations, checked after kernel launch.
+ * @param DcsCfg Configuration structure for DCS operation specifics.
+ * @param GpuCfg Configuration structure for GPU execution parameters.
+ * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
+ */
 extern "C" cudaError_t fir_filter_64_coefficients_GPU(cufftComplex * signals_out, short* signals_in, float* buffer_out, float* buffer_in, cufftComplex * filter_coefficients_CPU, int* signals_channel_index,
 	int sizeIn, int LoopCount, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
 #endif
@@ -94,13 +134,34 @@ extern "C" cudaError_t fir_filter_64_coefficients_GPU(cufftComplex * signals_out
 #define MASK_LENGTH_TOT96 96
 
 #ifdef __cplusplus
+/**
+ * Perform a FIR filter operation on the GPU.
+ *
+ * These functions wrap the CUDA kernel call to process input signals through a FIR filter
+ * It manages memory transfers to the GPU and kernel execution settings.
+ *
+ * @param signals_out Output buffer for the filtered signals.
+ * @param signals_in Input buffer containing the raw signals.
+ * @param buffer_out Output buffer for buffer edge handling.
+ * @param buffer_in Input buffer for buffer edge handling.
+ * @param filter_coefficients_CPU Host-side array of filter coefficients. Only used on the first loop to populate constant memory.
+ * @param signals_channel_index Index array for channel processing.
+ * @param sizeIn Size of the input signal array.
+ * @param LoopCount Current iteration count, controls mask population.
+ * @param streamId CUDA stream for asynchronous operation.
+ * @param cudaStatus Status of CUDA operations, checked after kernel launch.
+ * @param DcsCfg Configuration structure for DCS operation specifics.
+ * @param GpuCfg Configuration structure for GPU execution parameters.
+ * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
+ */
 extern "C" cudaError_t fir_filter_96_coefficients_GPU(cufftComplex * signals_out, short* signals_in, float* buffer_out, float* buffer_in, cufftComplex * filter_coefficients_CPU, int* signals_channel_index,
 	int sizeIn, int LoopCount, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
 #endif
 
 
+#ifdef __cplusplus
 /** fast_phase_correction_GPU
-* 
+*
  * Performs the fast phase correction on the GPU.
  *
  * This function wraps the CUDA kernel call to process complex interferograms (IGMs)
@@ -121,15 +182,14 @@ extern "C" cudaError_t fir_filter_96_coefficients_GPU(cufftComplex * signals_out
  * @param GpuCfg Configuration structure for GPU execution parameters.
  * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
  */
-
-#ifdef __cplusplus
 extern "C" cudaError_t fast_phase_correction_GPU(cufftComplex * IGMs_out, cufftComplex * optical_ref1_out, cufftComplex * IGMs_in, cufftComplex * optical_beat1_in, cufftComplex * optical_beat2_in,
 	cufftComplex * ref1_buffer_in, cufftComplex * ref1_buffer_out, int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
 #endif
 
 
+#ifdef __cplusplus
 /** compute_dfr_wrapped_angle_GPU
-* 
+*
  * Computes dfr wrapped angle on the GPU.
  *
  * Wraps a CUDA kernel to compute the repetition frequency difference (dfr) wrapped angle
@@ -144,7 +204,7 @@ extern "C" cudaError_t fast_phase_correction_GPU(cufftComplex * IGMs_out, cufftC
  * @param optical_beat3_in Input buffer for the third optical beat signal.
  * @param optical_beat4_in Input buffer for the fourth optical beat signal.
  * @param ref1_buffer_in Input buffer for storing offset ref1 values.
- * @param ref1_buffer_out Output buffer for storing offset ref1 values. 
+ * @param ref1_buffer_out Output buffer for storing offset ref1 values.
  * @param ref2_buffer_in Input buffer for storing offset ref2 values.
  * @param ref2_buffer_out Output buffer for storing offset ref2 values.
  * @param sizeIn Size of the input arrays.
@@ -155,7 +215,6 @@ extern "C" cudaError_t fast_phase_correction_GPU(cufftComplex * IGMs_out, cufftC
  * @return cudaError_t The status of the function's execution, including memory transfer and kernel launch.
  */
 
-#ifdef __cplusplus
 extern "C" cudaError_t compute_dfr_wrapped_angle_GPU(float* optical_ref_dfr_angle, float* optical_ref1_angle, cufftComplex * optical_ref1_in, cufftComplex * optical_beat1_in,
 	cufftComplex * optical_beat2_in, cufftComplex * optical_beat3_in, cufftComplex * optical_beat4_in, cufftComplex * ref1_buffer_in, cufftComplex * ref1_buffer_out,
 	cufftComplex * ref2_buffer_in, cufftComplex * ref2_buffer_out, int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus,
@@ -163,8 +222,10 @@ extern "C" cudaError_t compute_dfr_wrapped_angle_GPU(float* optical_ref_dfr_angl
 #endif
 
 
+#ifdef __cplusplus
+
 /** unwrap_phase_GPU
-* 
+*
  * Performs phase unwrapping on the GPU.
  *
  * Calls CUDA kernels to unwrap phase signals stored in an input array. The unwrapping process
@@ -186,15 +247,14 @@ extern "C" cudaError_t compute_dfr_wrapped_angle_GPU(float* optical_ref_dfr_angl
  * @param DcsDStatus Device status structure for managing device-specific data.
  * @return cudaError_t Returns the status of CUDA operations.
  */
-
-#ifdef __cplusplus
 extern "C" cudaError_t unwrap_phase_GPU(double* unwrapped_phase, float* optical_ref_dfr_angle, int* two_pi_cumsum, int* blocks_edges_cumsum, int* increment_blocks_edges, int sizeIn,
 	cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
 #endif
 
 
+#ifdef __cplusplus
 /** fast_phase_projected_correction_GPU
-* 
+*
  * Performs fast phase projected correction on the GPU.
  *
  * Wraps the CUDA kernel to perform phase correction of complex IGMs using two optical
@@ -213,15 +273,14 @@ extern "C" cudaError_t unwrap_phase_GPU(double* unwrapped_phase, float* optical_
  * @param DcsDStatus Device status with additional operation parameters.
  * @return cudaError_t Execution status, including memory transfer and kernel launch.
  */
-
-#ifdef __cplusplus
 extern "C" cudaError_t fast_phase_projected_correction_GPU(cufftComplex * IGMs_out, cufftComplex * IGMs_in, float* optical_ref1_angle, double* optical_ref_dfr_unwrapped_angle,
 	int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSDeviceStatus DcsDStatus);
 #endif
 
 
+#ifdef __cplusplus
 /**  linspace_GPU
-* 
+*
  * Computes a linearly spaced vector on the GPU.
  *
  * Wraps the CUDA kernel call to generate a vector with linearly spaced elements
@@ -237,14 +296,13 @@ extern "C" cudaError_t fast_phase_projected_correction_GPU(cufftComplex * IGMs_o
  * @param DcsDStatus Device status containing start and end points.
  * @return cudaError_t Execution status, including memory transfer and kernel launch.
  */
-
-#ifdef __cplusplus
 extern "C" cudaError_t linspace_GPU(double* output, int sizeIn, int index_linspace, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSDeviceStatus DcsDStatus);
 #endif
 
 
+#ifdef __cplusplus
 /** linear_interpolation_GPU
-* 
+*
  * Performs linear interpolation on the GPU.
  *
  * Wraps the CUDA kernel call to interpolate a signal from a nonuniform grid to
@@ -265,14 +323,13 @@ extern "C" cudaError_t linspace_GPU(double* output, int sizeIn, int index_linspa
  * @param DcsCfg Configuration structure for operation specifics.
  * @return cudaError_t Execution status, including memory transfer and kernel launch.
  */
-
-#ifdef __cplusplus
 extern "C" cudaError_t linear_interpolation_GPU(cufftComplex * interpolated_signal, double* uniform_grid, cufftComplex * input_signal, double* nonuniform_grid,
 	int* idx_nonuniform_to_uniform_grid, int nb_pts_nonuniform_grid, int nb_pts_uniform_grid, int index_linear_interp, int threads, int blocks,
 	cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg);
 #endif
 
 
+#ifdef __cplusplus
 /** rotate_IGMs_phase_GPU
  * Rotates the IGMs phase and removes a phase slope on the GPU.
  *
@@ -291,14 +348,13 @@ extern "C" cudaError_t linear_interpolation_GPU(cufftComplex * interpolated_sign
  * @param cudaStatus Status of CUDA operations, to be checked after kernel launch.
  * @return cudaError_t Execution status, including memory transfer and kernel launch.
  */
-
-#ifdef __cplusplus
 extern "C" cudaError_t rotate_IGMs_phase_GPU(cufftComplex * IGMs, double angle, double slope, int sizeIn, int decimation_factor, int blocks, int threads, cudaStream_t streamId, cudaError_t cudaStatus);
 #endif
 
 
+#ifdef __cplusplus
 /** find_first_IGMs_ZPD_GPU
-* 
+*
  * Finds the first Zero Path Difference (ZPD) in the interferogram stream using GPU acceleration.
  *
  * @param IGMs Buffer to the input array of IGMs.
@@ -313,12 +369,12 @@ extern "C" cudaError_t rotate_IGMs_phase_GPU(cufftComplex * IGMs, double angle, 
  * @param DcsDStatus Device-side status structure for DCS operation.
  * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
  */
-
-#ifdef __cplusplus
 extern "C" cudaError_t  find_first_IGMs_ZPD_GPU(cufftComplex * IGMs, cufftComplex * IGM_template, cufftComplex * xcorr_blocks, double* index_mid_segments,
 	cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
 #endif
 
+
+#ifdef __cplusplus
 /** find_IGMs_ZPD_GPU
 *
  * Finds the  Zero Path Difference (ZPD) in the interferogram stream using GPU acceleration.
@@ -338,9 +394,6 @@ extern "C" cudaError_t  find_first_IGMs_ZPD_GPU(cufftComplex * IGMs, cufftComple
  * @param DcsDStatus Device-side status structure for DCS operation.
  * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
  */
-
-
-#ifdef __cplusplus
 extern "C" cudaError_t find_IGMs_ZPD_GPU(cufftComplex * IGMs, cufftComplex * IGM_template, cufftComplex * xcorr_blocks, double* index_mid_segments,
 	double* max_idx_sub, float* phase_sub, double* unwrapped_phase, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg,
 	DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
@@ -348,46 +401,53 @@ extern "C" cudaError_t find_IGMs_ZPD_GPU(cufftComplex * IGMs, cufftComplex * IGM
 #endif
 
 
- /** compute_SelfCorrection_GPU
- *
-  *. Computes the self-correction dfr and f0 spline grids. Does the slow phase correction and the linear interpolation between ZPDs for slow dfr variations
-  *
-  * @param IGMsOut Buffer to the output array of self-corrected IGMs.
-  * @param IGMsIn_phase Buffer to the output array of slow phase corrected IGMs.
-  * @param IGMsIn  Buffer to the input array of IGMs.
-  * @param Spline_grid_f0 Input buffer for the spline phase grid.
-  * @param Spline_grid_dfr Input buffer for the spline dfr grid.
-  * @param selfCorr_xaxis_uniform_grid Input buffer for the uniform grid values in slow phase correction and dfr resampling.
-  * @param idx_nonuniform_to_uniform_grid Buffer to store index mappings from nonuniform to uniform grid.
-  * @param spline_coefficients_f0 Buffer to store the spline coefficients computed for the slow phase correction.
-  * @param spline_coefficients_dfr Buffer to store the spline coefficients computed for the slow dfr resampling.
-  * @param max_idx_sub Output buffer for the sub point position of the ZPD.
-  * @param phase_sub Output buffer for the sub point phase of the ZPD.
-  * @param streamId CUDA stream for asynchronous operation.
-  * @param cudaStatus Status of CUDA operations, to be checked after kernel execution.
-  * @param DcsCfg Configuration structure for DCS operation specifics.
-  * @param GpuCfg Configuration structure for GPU execution parameters.
-  * @param DcsHStatus Host-side status structure for DCS operation.
-  * @param DcsDStatus Device-side status structure for DCS operation.
-  * @return cudaError_t status of the function's execution, including memory transfer and kernel launch. selfCorr_xaxis_uniform_grid
-  */
-
 #ifdef __cplusplus
+/** compute_SelfCorrection_GPU
+*
+ *. Computes the self-correction dfr and f0 spline grids. Does the slow phase correction and the linear interpolation between ZPDs for slow dfr variations
+ *
+ * @param IGMsOut Buffer to the output array of self-corrected IGMs.
+ * @param IGMsIn_phase Buffer to the output array of slow phase corrected IGMs.
+ * @param IGMsIn Buffer to the input array of IGMs.
+ * @param Spline_grid_f0 Input buffer for the spline phase grid.
+ * @param Spline_grid_dfr Input buffer for the spline dfr grid.
+ * @param selfCorr_xaxis_uniform_grid Input buffer for the uniform grid values in slow phase correction and dfr resampling.
+ * @param idx_nonuniform_to_uniform_grid Buffer to store index mappings from nonuniform to uniform grid.
+ * @param spline_coefficients_f0 Buffer to store the spline coefficients computed for the slow phase correction.
+ * @param spline_coefficients_dfr Buffer to store the spline coefficients computed for the slow dfr resampling.
+ * @param max_idx_sub Output buffer for the sub point position of the ZPD.
+ * @param phase_sub Output buffer for the sub point phase of the ZPD.
+ * @param streamId CUDA stream for asynchronous operation.
+ * @param cudaStatus Status of CUDA operations, to be checked after kernel execution.
+ * @param DcsCfg Configuration structure for DCS operation specifics.
+ * @param GpuCfg Configuration structure for GPU execution parameters.
+ * @param DcsHStatus Host-side status structure for DCS operation.
+ * @param DcsDStatus Device-side status structure for DCS operation.
+ * @return cudaError_t status of the function's execution, including memory transfer and kernel launch. 
+ */
 extern "C" cudaError_t compute_SelfCorrection_GPU(cufftComplex * IGMsOut, cufftComplex * IGMsIn_phase, cufftComplex * IGMsIn, float* Spline_grid_f0, double* Spline_grid_dfr, double* selfCorr_xaxis_uniform_grid, int* idx_nonuniform_to_uniform,
 	double* spline_coefficients_f0, double* spline_coefficients_dfr, double* max_idx_sub, float* phase_sub, cudaStream_t streamId, cudaError_t cudaStatus,
 	DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
 #endif
 
-/** Compute_MeanIGM_GPU
-*
- *  function that calculate the average of the complex IGM of the segment
- .
- */
-
 
 #ifdef __cplusplus
-extern "C" cudaError_t Compute_MeanIGM_GPU(cufftComplex * IGMFloatOut, int16Complex * IGMOutInt, cufftComplex * IGMHold, cufftComplex * IGMsIn, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg,
+ /** compute_MeanIGM_GPU
+ *
+  *. Computes the average of the complex IGM of the segment
+  *
+  * @param IGMFloatOut Buffer to the output array of the average IGM in float32.
+  * @param IGMOutInt Buffer to the output array of the average IGM in int16.
+  * @param IGMHold Buffer to hold the intermediate average IGMs for multi-buffer averaging.
+  * @param IGMsIn Buffer to the input array of IGMs.
+  * @param streamId CUDA stream for asynchronous operation.
+  * @param cudaStatus Status of CUDA operations, to be checked after kernel execution.
+  * @param DcsCfg Configuration structure for DCS operation specifics.
+  * @param DcsHStatus Host-side status structure for DCS operation.
+  * @param DcsDStatus Device-side status structure for DCS operation.
+  * @return cudaError_t status of the function's execution, including memory transfer and kernel launch. 
+  */
+extern "C" cudaError_t compute_MeanIGM_GPU(cufftComplex * IGMFloatOut, int16Complex * IGMOutInt, cufftComplex * IGMHold, cufftComplex * IGMsIn, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg,
 	DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
-#else
-extern cudaError_t Compute_MeanIGM_GPU(cufftComplex* IGMOut, cufftComplex* IGMsIn, int NIGMs, int sizeIn, int ptsPerIGM, int decimation_factor, cudaStream_t streamId, cudaError_t cudaStatus);
+
 #endif

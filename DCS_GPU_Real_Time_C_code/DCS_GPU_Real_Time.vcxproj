@@ -117,6 +117,8 @@
       <AdditionalLibraryDirectories>Source\GPU_lib;$(GageDir)\lib64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>DCS_GPU_library.lib;cuda.lib;CsAppSupport.lib;CsSsm.lib;cufft.lib;cusolver.lib;cublas.lib;cublasLt.lib;cusparse.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
+      <AdditionalManifestDependencies>%(AdditionalManifestDependencies)</AdditionalManifestDependencies>
     </Link>
     <CudaCompile>
       <AdditionalCompilerOptions>
@@ -159,6 +161,7 @@
     <ClCompile Include="Source\PUG_daemon\ThreadHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="resource1.h" />
     <ClInclude Include="Source\GPU_lib\DCS_GPU_library.h" />
     <ClInclude Include="Source\GPU_lib\DCS_structs.h" />
     <ClInclude Include="Source\PUG_daemon\AcquisitionProcessingThread.h" />
