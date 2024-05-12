@@ -160,6 +160,7 @@ struct DCSHostStatus {
 	int32_t NIGMsTot;
 	double IGMs_rotation_angle;
 
+	double* ptsPerIGM_first_IGMs_ptr;
 	// Constructor
 	DCSHostStatus()
 		:
@@ -208,8 +209,9 @@ struct DCSHostStatus {
 		NBufferAvg(0),
 		NIGMsAvgTot(0),
 		NIGMsTot(0),
-		IGMs_rotation_angle(0.0f)
+		IGMs_rotation_angle(0.0f),
 
+		ptsPerIGM_first_IGMs_ptr(new double[1])
 	{
 		// Constructor body (if needed)
 	}
@@ -230,6 +232,7 @@ struct DCSHostStatus {
 		delete[] last_projected_angle_ptr;
 		delete[] UnwrapError_ptr;
 		delete[] FindFirstIGM;
+		delete[] ptsPerIGM_first_IGMs_ptr;
 	}
 
 };

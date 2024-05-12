@@ -672,7 +672,6 @@ else
         end
 
     elseif (apriori_params.spectro_mode == 1)
-        freq_0Hz_electrical_approx_Hz = -1; % To do
         % We take the combination with the minimum variance
         if idxmin == 1
 
@@ -687,7 +686,7 @@ else
             refCW1 = ref1C;
             fdfr(1) = fPC(2);
         end
-
+        normalized_phase_slope = 0; 
         fprintf("Finding correction parameters for reference 2...\n")
 
         % Offset if there is a lot of fiber length between the
@@ -768,12 +767,12 @@ else
                     dfr_unwrap_factor(i)*abs(normalized_slope_dfr(1))*(0:N-1)';
             end
 
-            normalized_slope_dfr = polyfit(1:N, phidfr(:,i), 1);
-            f_dfr = normalized_slope_dfr(1)*fs/2/pi;
-
+            % normalized_slope_dfr = polyfit(1:N, phidfr(:,i), 1);
+            % f_dfr = normalized_slope_dfr(1)*fs/2/pi;
+            normalized_slopes_dfr{i} = normalized_slope_dfr(1);
             f_projection_tooth = c/(apriori_params.projection_wvl_nm*1e-9);
-            projection_factor = f_projection_tooth/f_laser;
-            phidfrProj = projection_factor*phidfr(:,i);
+            projection_factor(i) = f_projection_tooth/f_laser;
+            phidfrProj = projection_factor(i)*phidfr(:,i);
             IGMsPC(:,i)= dataF(:,1).*exp(1j*phidfrProj);
 
             slopedfr = polyfit(1:N, phidfrProj, 1);
@@ -781,18 +780,136 @@ else
             IGMsProj(:,i) = interp1(phidfrProj, IGMsPC(:,i), new_grid_ref, 'spline',0);
 
         end
-
+        
         % We have two possibilities left, we try both possibilities and take
         % the one with the minimum variance on the locs positions
-        [template1, templateFull1, phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1, nb_pts_max_xcorr] = Find_correction_parameters(IGMsPC(:,1), ...
-            ptsPerIGM, 'cm', apriori_params.half_width_template);
-        std_locs(1) = var(diff(true_locs1)-mean(diff(true_locs1))) ;
+        [template1, templateFull1, phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1, ~] = Find_correction_parameters(IGMsProj(:,1), ...
+            ptsPerIGM, 0, apriori_params.half_width_template);
 
-        [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2, nb_pts_max_xcorr] = Find_correction_parameters(IGMsPC(:,2), ...
-            ptsPerIGM, 'cm', apriori_params.half_width_template);
-        std_locs(2) = var(diff(true_locs2)-mean(diff(true_locs2))) ;
+        varPhi1 = var(detrend(phiZPD1(2:end)));
+        varLocs1 = var(diff(true_locs1)-mean(diff(true_locs1)));
+        [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2, ~] = Find_correction_parameters(IGMsProj(:,2), ...
+            ptsPerIGM, 0, apriori_params.half_width_template);
+        varPhi2 = var(detrend(phiZPD2(2:end)));
+        varLocs2 = var(diff(true_locs2)-mean(diff(true_locs2)));
+
+        % Initialize a counter for the number of times first set of parameters is smaller
+        countSmaller = 0;
+
+        % Compare each pair and increment the counter if the first is smaller than the second
+        if varPhi1 < varPhi2
+            countSmaller = countSmaller + 1;
+        end
+
+        if varLocs1 < varLocs2
+            countSmaller = countSmaller + 1;
+        end
+
+        % If 2 out of the 3 parameters are smaller, we choose this
+        % case
+        if (apriori_params.do_fast_resampling ==0)
+            if countSmaller >= 1
+                x = 1;
+                dfr_unwrap_factor = dfr_unwrap_factor(1);
+                normalized_slope_self_corr = polyfit(true_locs1(2:end), phiZPD1(2:end), 1); % For some reason the first is phase is often wrong
+                phidfr = phidfr(:,1);
+                normalized_slope_dfr = polyfit(1:N, phidfr, 1);
+                projection_factor = projection_factor(1) + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
+            else
+                x = 2;
+                dfr_unwrap_factor = dfr_unwrap_factor(2);
+                normalized_slope_self_corr = polyfit(true_locs2(2:end), phiZPD2(2:end), 1); % For some reason the first is phase is often wrong
+                phidfr = phidfr(:,2);
+                normalized_slope_dfr = polyfit(1:N, phidfr, 1);
+                projection_factor = projection_factor(2) + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
+
+            end
+
+            phiTotProj = phidfr*(projection_factor);
+            IGMsProj =dataF(:,1).*exp(1j*phiTotProj);
+            [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters( IGMsProj, ptsPerIGM, ...
+                0, apriori_params.half_width_template);
+
+            freq_0Hz_electrical_approx_Hz = projection_factor*f_laser;
+
+        else  %   % If we are adding fast resampling with phase projection
+            if countSmaller >= 1
+                x = 1;
+                dfr_unwrap_factor = dfr_unwrap_factor(1);
+                projection_factor = projection_factor(1);
+                phidfr = phidfr(:,1);
+            else
+                x = 2;
+                dfr_unwrap_factor = dfr_unwrap_factor(2);
+                projection_factor = projection_factor(2);
+                phidfr = phidfr(:,2);
+            end
+
+            normalized_slope_dfr = polyfit(1:N, phidfr, 1);
+            phiTotProj = phidfr*(projection_factor);
+            IGMsProj =dataF(:,1).*exp(1j*phiTotProj);
+            N = numel(IGMsProj);
+            slopedfr = polyfit(1:N, phidfrProj, 1);
+            new_grid_ref = slopedfr(2) + ((0:N-1)*slopedfr(1))';
+            IGMsProjR = interp1(phidfrProj, IGMsProj, new_grid_ref, 'linear',0);
+            [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(IGMsProjR, ptsPerIGM, ...
+                0, apriori_params.half_width_template);
+            normalized_slope_self_corr = polyfit(true_locs(2:end), phiZPD(2:end), 1); % For some reason the first is phase is often wrong
+            projection_factor = projection_factor + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
+
+            freq_0Hz_electrical_approx_Hz = projection_factor*f_laser;
+        end
+
+        dfr_unwrap_factor = dfr_unwrap_factor*abs(normalized_slopes_dfr{x}(1));
+        dfr_case = idx_sort(x);
+
+        switch dfr_case
+            case 1
+                conjugateDfr1 = 0;
+                conjugateDfr2 = 0;
+                conjugateCW2_C1 = 0;
+                conjugateCW2_C2 = 0;
+            case 2
+                conjugateDfr1 = 1;
+                conjugateDfr2 = 1;
+                conjugateCW2_C1 = 0;
+                conjugateCW2_C2 = 0;
+            case 3
+                conjugateDfr1 = 0;
+                conjugateDfr2 = 1;
+                conjugateCW2_C1 = 0;
+                conjugateCW2_C2 = 0;
+            case 4
+                conjugateDfr1 = 1;
+                conjugateDfr2 = 0;
+                conjugateCW2_C1 = 0;
+                conjugateCW2_C2 = 0;
+
+            case 5
+                conjugateDfr1 = 0;
+                conjugateDfr2 = 0;
+                conjugateCW2_C1 = 0;
+                conjugateCW2_C2 = 1;
+            case 6
+                conjugateDfr1 = 1;
+                conjugateDfr2 = 1;
+                conjugateCW2_C1 = 0;
+                conjugateCW2_C2 = 1;
+            case 7
+                conjugateDfr1 = 0;
+                conjugateDfr2 = 1;
+                conjugateCW2_C1 = 0;
+                conjugateCW2_C2 = 1;
+            case 8
+                conjugateDfr1 = 1;
+                conjugateDfr2 = 0;
+                conjugateCW2_C1 = 0;
+                conjugateCW2_C2 = 1;
+        end
 
 
+        dfr = fs/ptsPerIGM_sub;
+        ptsPerIGM = round(fs/dfr/2)*2;
 
     end
 end
@@ -836,6 +953,7 @@ chirp_factor = max(abs(templateUnchirp))/max(abs(template));
 
 max_xcorr_template = sum(abs(template).^2) / apriori_params.decimation_factor;
 
+% mv_to_level = 2^(gageCard_params.nb_bytes_per_sample*8)/gageCard_params.channel1_range_mV;
 mv_to_level = 2^(gageCard_params.nb_bytes_per_sample*8)/gageCard_params.channel1_range_mV;
 
 xcorr_factor_mV = MaxTemplate/ max_xcorr_template / mv_to_level;

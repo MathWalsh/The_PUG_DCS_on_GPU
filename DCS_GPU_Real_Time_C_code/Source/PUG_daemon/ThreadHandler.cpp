@@ -179,7 +179,8 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 	if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.max_xcorr_first_IGM_ptr[0] > DcsCfg.xcorr_threshold_low) {
 		DcsHStatus.FirstIGMFound = true;
 		DcsHStatus.max_xcorr_first_IGM_ptr[0] = 0;
-		DcsHStatus.previousptsPerIGM_ptr[0] = DcsCfg.ptsPerIGM_sub; // We reset the dfr to the one computed in matlab. Temporary fix, we should calculate it with 3-4 IGMs in find_first_IGMs_ZPD_GPU, or keep track of it with the references
+		//DcsHStatus.previousptsPerIGM_ptr[0] = DcsCfg.ptsPerIGM_sub; // We reset the dfr to the one computed in matlab. Temporary fix, we should calculate it with 3-4 IGMs in find_first_IGMs_ZPD_GPU, or keep track of it with the references
+		DcsHStatus.previousptsPerIGM_ptr[0] = DcsHStatus.ptsPerIGM_first_IGMs_ptr[0]; // We reset the dfr to the one computed in find_first_IGMs
 	}
 
 	if (u32LoopCount == 0) {
@@ -350,7 +351,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			}
 
 		}
-		else if (DcsCfg.do_phase_projection == 1) {
+		else if (DcsCfg.do_phase_projection == 1 || DcsCfg.spectro_mode == 1) {
 
 			//Create the dfr reference 
 			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
@@ -1347,6 +1348,7 @@ void ThreadHandler::AllocateGPUBuffers()
 	DcsHStatus.ZPDPhaseMean_ptr[0] = 0;
 	DcsHStatus.max_xcorr_sum_ptr[0] = 0.0f;
 
+	DcsHStatus.ptsPerIGM_first_IGMs_ptr[0] = 0.0f;
 	if (DcsCfg.max_delay_xcorr >= DcsCfg.nb_pts_template) {
 		DcsCfg.max_delay_xcorr = DcsCfg.nb_pts_template - 1;
 	}
