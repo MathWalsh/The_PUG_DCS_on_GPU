@@ -92,7 +92,7 @@ struct AcquisitionThreadFlowControl
 	displayable_signal		displaySignal2_choice = none;	// Signal to send in buffer 2
 	displayable_signal		displaySignalXcorr_choice = none;
 
-	uint32_t				displaySignals_refresh_rate = 100; // in ms
+	uint32_t				displaySignals_refresh_rate = 50; // in ms
 
 
 	AcquisitionThreadFlowControl()

@@ -591,7 +591,7 @@ void ThreadHandler::sleepUntilDMAcomplete()
 		double elapsedTime = 0.0;
 		double targetTime = static_cast<double>(DcsCfg.nb_pts_per_buffer) / static_cast<double>(DcsCfg.sampling_rate_Hz) / static_cast<double>(DcsCfg.nb_channels);
 
-		while (elapsedTime < 1 * targetTime) {
+		while (elapsedTime < 10000 * targetTime) {
 			QueryPerformanceCounter(&currentCounter);
 			elapsedTime = ((double)currentCounter.QuadPart - (double)CounterStart.QuadPart) / CounterFrequency;
 
@@ -1355,8 +1355,8 @@ void ThreadHandler::AllocateGPUBuffers()
 
 	// find_first_IGMs_ZPD_GPU
 	DcsHStatus.blocksPerDelayFirst = (DcsCfg.nb_pts_template + 2 * 256 - 1) / (2 * 256); // We put 256 because this is the number of threads per block in find_IGMs_ZPD_GPU
-	DcsHStatus.totalDelaysFirst = 3 * DcsCfg.max_delay_xcorr; // We need to test this, we might need more
-	if (3 * DcsCfg.max_delay_xcorr > DcsCfg.nb_pts_template) {
+	DcsHStatus.totalDelaysFirst = 2 * DcsCfg.max_delay_xcorr; // We need to test this, we might need more
+	if (2 * DcsCfg.max_delay_xcorr > DcsCfg.nb_pts_template) {
 		DcsHStatus.totalDelaysFirst = DcsCfg.nb_pts_template - 1;
 	}
 	DcsHStatus.totalBlocksFirst = DcsHStatus.blocksPerDelayFirst * DcsHStatus.totalDelaysFirst;
