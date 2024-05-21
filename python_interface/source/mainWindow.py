@@ -297,15 +297,29 @@ class mainWindow(QtWidgets.QMainWindow):
 
     def update_amplitude_thermometer_range(self):
         self.ADC_range_thermo = self.findChild(ThermometerWidget, 'ADC_range')
+        
+        # Resetting the range and scale
         self.ADC_range_thermo.setRange(0, self.max_ADC_range)
         self.ADC_range_thermo.setScale(0, self.max_ADC_range)
+        
+        # Resetting the value and fill color
         self.ADC_range_thermo.setValue(0)
         self.ADC_range_thermo.setFillColor(Qt.Qt.blue)
-        ticksListMinor = np.arange(0,1.1,0.2)*self.max_ADC_range
-        ticksListMajor = np.arange(0.1, 0.91,0.2)*self.max_ADC_range
-        ticksLabelMajor = list(map(str, (np.round(ticksListMajor,0))))
+        
+        # Clearing previous ticks and labels
+        self.ADC_range_thermo.clearTicks()
+    
+        # Generating new ticks and labels
+        ticksListMinor = np.arange(0, 1.1, 0.2) * self.max_ADC_range
+        ticksListMajor = np.arange(0.1, 0.91, 0.2) * self.max_ADC_range
+        ticksLabelMajor = list(map(str, (np.round(ticksListMajor, 0))))
+        
+        # Setting new ticks and labels
         self.ADC_range_thermo.setTicks(ticksListMajor, ticksListMinor, ticksLabelMajor)
+        
+        # Disabling the thermometer widget
         self.ADC_range_thermo.setEnabled(False)
+
      
     def on_tab_change(self, index):
         # This function is called whenever the current tab changes

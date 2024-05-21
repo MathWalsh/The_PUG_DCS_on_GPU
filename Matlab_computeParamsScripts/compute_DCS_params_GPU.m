@@ -112,6 +112,7 @@ ptsPerIGM = round(fs/dfr/2)*2;
 fprintf("dfr found : %.4f Hz\n", dfr);
 %% Compute template if no references
 if apriori_params.nb_phase_references == 0
+    dataF = dataF(idxStart:idxEnd, :);
     [template, templateFull ,phiZPD, normalized_phase_slope, ptsPerIGM_sub, ~, nb_pts_max_xcorr] = Find_correction_parameters(dataF(:,1), ptsPerIGM, ...
         'cm', apriori_params.half_width_template);
     % Unused variables in this case, using default values
@@ -686,7 +687,7 @@ else
             refCW1 = ref1C;
             fdfr(1) = fPC(2);
         end
-        normalized_phase_slope = 0; 
+        normalized_phase_slope = 0;
         fprintf("Finding correction parameters for reference 2...\n")
 
         % Offset if there is a lot of fiber length between the
@@ -737,13 +738,20 @@ else
         % of fr wraps
         Nwraps = (f_dfr_true-f_dfrs)/apriori_params.fr_approx_Hz; % Should be an integer
         Nwraps_rem = abs(Nwraps - round(Nwraps));
-        [~, idx_sort] = sort(Nwraps_rem);
+        [~, idx_sort1] = sort(Nwraps_rem);
 
+        Nwraps = (f_dfr_true+f_dfrs)/apriori_params.fr_approx_Hz; % Should be an integer
+        Nwraps_rem = abs(Nwraps - round(Nwraps));
+        [~, idx_sort2] = sort(Nwraps_rem);
 
         % We test the two cases of dfr left
-        for i = 1:2
+        for i = 1:4
 
-            refdfr = ref_dfrs(:, idx_sort(i));
+            if i<=2
+                refdfr = ref_dfrs(:, idx_sort1(i));
+            else
+                refdfr = ref_dfrs(:, idx_sort2(i-2));
+            end
             N = length(refdfr);
             phidfr(:,i) = unwrap(angle(double(refdfr)));
 
@@ -752,21 +760,38 @@ else
 
             f_dfr = normalized_slope_dfr(1)*fs/2/pi;
 
-            % Factor to increase the slope to the right one
-            dfr_unwrap_factor(i) = abs(f_dfr_true/f_dfr);
+            if i<=2
+                % Factor to increase the slope to the right one
+                dfr_unwrap_factor(i) = abs(f_dfr_true/f_dfr);
 
-            % Since we already unwrap phidfr in the GPU code, we need to
-            % remove or add 1 to the factor
-            if f_dfr < 0
-                dfr_unwrap_factor(i) = dfr_unwrap_factor(i)+1;
-                phidfr(:,i) = phidfr(:,i) + ...
-                    dfr_unwrap_factor(i)*abs(normalized_slope_dfr(1))*(0:N-1)';
+                % Since we already unwrap phidfr in the GPU code, we need to
+                % remove or add 1 to the factor
+                if f_dfr < 0
+                    dfr_unwrap_factor(i) = dfr_unwrap_factor(i)+1;
+                    phidfr(:,i) = phidfr(:,i) + ...
+                        dfr_unwrap_factor(i)*abs(normalized_slope_dfr(1))*(0:N-1)';
+                else
+                    dfr_unwrap_factor(i) = dfr_unwrap_factor(i)-1;
+                    phidfr(:,i) = phidfr(:,i) + ...
+                        dfr_unwrap_factor(i)*abs(normalized_slope_dfr(1))*(0:N-1)';
+                end
             else
-                dfr_unwrap_factor(i) = dfr_unwrap_factor(i)-1;
-                phidfr(:,i) = phidfr(:,i) + ...
-                    dfr_unwrap_factor(i)*abs(normalized_slope_dfr(1))*(0:N-1)';
-            end
+                % Factor to increase the slope to the right one
+                dfr_unwrap_factor(i) = -abs(f_dfr_true/f_dfr);
 
+                % Since we already unwrap phidfr in the GPU code, we need to
+                % remove or add 1 to the factor
+                if f_dfr < 0
+                    dfr_unwrap_factor(i) = dfr_unwrap_factor(i)+1;
+                    phidfr(:,i) = phidfr(:,i) + ...
+                        dfr_unwrap_factor(i)*abs(normalized_slope_dfr(1))*(0:N-1)';
+                else
+                    dfr_unwrap_factor(i) = dfr_unwrap_factor(i)-1;
+                    phidfr(:,i) = phidfr(:,i) + ...
+                        dfr_unwrap_factor(i)*abs(normalized_slope_dfr(1))*(0:N-1)';
+                end
+
+            end
             % normalized_slope_dfr = polyfit(1:N, phidfr(:,i), 1);
             % f_dfr = normalized_slope_dfr(1)*fs/2/pi;
             normalized_slopes_dfr{i} = normalized_slope_dfr(1);
@@ -776,52 +801,69 @@ else
             IGMsPC(:,i)= dataF(:,1).*exp(1j*phidfrProj);
 
             slopedfr = polyfit(1:N, phidfrProj, 1);
-            new_grid_ref = slopedfr(2) + ((0:N-1)*slopedfr(1))';
+            new_grid_ref = slopedfr(2) + (  (0:N-1)*slopedfr(1))';
             IGMsProj(:,i) = interp1(phidfrProj, IGMsPC(:,i), new_grid_ref, 'spline',0);
 
         end
-        
+
         % We have two possibilities left, we try both possibilities and take
         % the one with the minimum variance on the locs positions
         [template1, templateFull1, phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1, ~] = Find_correction_parameters(IGMsProj(:,1), ...
             ptsPerIGM, 0, apriori_params.half_width_template);
 
-        varPhi1 = var(detrend(phiZPD1(2:end)));
-        varLocs1 = var(diff(true_locs1)-mean(diff(true_locs1)));
+        varPhi(1) = var(detrend(phiZPD1(2:end)));
+        varLocs(1) = var(diff(true_locs1)-mean(diff(true_locs1)));
         [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2, ~] = Find_correction_parameters(IGMsProj(:,2), ...
             ptsPerIGM, 0, apriori_params.half_width_template);
-        varPhi2 = var(detrend(phiZPD2(2:end)));
-        varLocs2 = var(diff(true_locs2)-mean(diff(true_locs2)));
+        varPhi(2) = var(detrend(phiZPD2(2:end)));
+        varLocs(2) = var(diff(true_locs2)-mean(diff(true_locs2)));
 
-        % Initialize a counter for the number of times first set of parameters is smaller
-        countSmaller = 0;
+        [template3, templateFull3, phiZPD3, normalized_phase_slope3, ptsPerIGM_sub3, true_locs3, ~] = Find_correction_parameters(IGMsProj(:,3), ...
+            ptsPerIGM, 0, apriori_params.half_width_template);
+        varPhi(3) = var(detrend(phiZPD3(2:end)));
+        varLocs(3) = var(diff(true_locs3)-mean(diff(true_locs3)));
 
-        % Compare each pair and increment the counter if the first is smaller than the second
-        if varPhi1 < varPhi2
-            countSmaller = countSmaller + 1;
+        [template4, templateFull4, phiZPD4, normalized_phase_slope4, ptsPerIGM_sub4, true_locs4, ~] = Find_correction_parameters(IGMsProj(:,4), ...
+            ptsPerIGM, 0, apriori_params.half_width_template);
+        varPhi(4) = var(detrend(phiZPD4(2:end)));
+        varLocs(4) = var(diff(true_locs4)-mean(diff(true_locs4)));
+
+
+        [~, idxPhi] = min(varPhi);
+        [~, idxLocs] = min(varLocs);
+
+        if (idxPhi == idxLocs)
+            x = idxPhi;
+        else
+            error("Could not find proper correction parameters that minized the phase and dfr noise\n");
         end
-
-        if varLocs1 < varLocs2
-            countSmaller = countSmaller + 1;
-        end
-
-        % If 2 out of the 3 parameters are smaller, we choose this
-        % case
+        % To DO
         if (apriori_params.do_fast_resampling ==0)
-            if countSmaller >= 1
-                x = 1;
+            if x == 1
                 dfr_unwrap_factor = dfr_unwrap_factor(1);
                 normalized_slope_self_corr = polyfit(true_locs1(2:end), phiZPD1(2:end), 1); % For some reason the first is phase is often wrong
                 phidfr = phidfr(:,1);
                 normalized_slope_dfr = polyfit(1:N, phidfr, 1);
                 projection_factor = projection_factor(1) + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
-            else
-                x = 2;
+            elseif x == 2
                 dfr_unwrap_factor = dfr_unwrap_factor(2);
                 normalized_slope_self_corr = polyfit(true_locs2(2:end), phiZPD2(2:end), 1); % For some reason the first is phase is often wrong
                 phidfr = phidfr(:,2);
                 normalized_slope_dfr = polyfit(1:N, phidfr, 1);
                 projection_factor = projection_factor(2) + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
+            elseif x == 3
+                dfr_unwrap_factor = dfr_unwrap_factor(3);
+                normalized_slope_self_corr = polyfit(true_locs3(2:end), phiZPD3(2:end), 1); % For some reason the first is phase is often wrong
+                phidfr = phidfr(:,3);
+                normalized_slope_dfr = polyfit(1:N, phidfr, 1);
+                projection_factor = projection_factor(3) + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
+
+            elseif x == 4
+                dfr_unwrap_factor = dfr_unwrap_factor(4);
+                normalized_slope_self_corr = polyfit(true_locs4(2:end), phiZPD4(2:end), 1); % For some reason the first is phase is often wrong
+                phidfr = phidfr(:,4);
+                normalized_slope_dfr = polyfit(1:N, phidfr, 1);
+                projection_factor = projection_factor(4) + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
 
             end
 
@@ -833,16 +875,28 @@ else
             freq_0Hz_electrical_approx_Hz = projection_factor*f_laser;
 
         else  %   % If we are adding fast resampling with phase projection
-            if countSmaller >= 1
-                x = 1;
+            if x == 1
+                
                 dfr_unwrap_factor = dfr_unwrap_factor(1);
                 projection_factor = projection_factor(1);
                 phidfr = phidfr(:,1);
-            else
-                x = 2;
+            elseif x == 2
+              
                 dfr_unwrap_factor = dfr_unwrap_factor(2);
                 projection_factor = projection_factor(2);
                 phidfr = phidfr(:,2);
+
+            elseif x == 3
+
+                dfr_unwrap_factor = dfr_unwrap_factor(3);
+                projection_factor = projection_factor(3);
+                phidfr = phidfr(:,3);
+
+            elseif x == 4
+
+                dfr_unwrap_factor = dfr_unwrap_factor(4);
+                projection_factor = projection_factor(4);
+                phidfr = phidfr(:,4);
             end
 
             normalized_slope_dfr = polyfit(1:N, phidfr, 1);
@@ -861,7 +915,12 @@ else
         end
 
         dfr_unwrap_factor = dfr_unwrap_factor*abs(normalized_slopes_dfr{x}(1));
-        dfr_case = idx_sort(x);
+        if x <= 2
+         dfr_case = idx_sort1(x);
+        else 
+          x = x-2;
+          dfr_case = idx_sort2(x);
+        end
 
         switch dfr_case
             case 1

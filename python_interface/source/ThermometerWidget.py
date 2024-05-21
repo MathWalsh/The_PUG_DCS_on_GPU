@@ -72,6 +72,21 @@ class ThermometerWidget(QtWidgets.QWidget):
         # Update widget display:
         self.resizeEvent(None)
 
+
+    def clearTicks(self):
+        for label in self.lblTicks:
+            label.deleteLater()
+        for line in self.qline_ticks:
+            line.deleteLater()
+        for line in self.qline_minor_ticks:
+            line.deleteLater()
+        self.lblTicks.clear()
+        self.qline_ticks.clear()
+        self.qline_minor_ticks.clear()
+        self.ticksValuesList.clear()
+        self.minorTicksValuesList.clear()
+        self.ticksTextList.clear()
+        
     def setFillColor(self, color):
         PaletteBackground = Qt.QPalette()
         PaletteBackground.setColor(Qt.QPalette.Background, color)
