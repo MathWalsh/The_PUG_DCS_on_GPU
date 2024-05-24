@@ -66,6 +66,10 @@ class TCP_command(IntEnum):
     receive_bufX            = 27
     set_bufX_sig            = 28
     receive_ref_pathLength  = 29        # Receive the new ref path length offset by TCP and update the local DcsCfg
+    acquisitionStopped      = 30        # C app sends that when acquistion stops. 
+    startSaving             = 31        # start saving co-added igm file payload contains channel #
+    stopSaving              = 32        # stop saving co-added igm file payload contains channel #
+    changeExperimentName    = 33        # change the experiement name, payload is "chan#,name"
 
 class Qtcp_comm:
     """Class representing TCP communication.

@@ -35,6 +35,7 @@
     "nb_pts_interval_interpolation": 20,
     "do_post_processing": 1,
     "nb_coefficients_filters": 96,
+    "measurement_name":  "Test1234",
     "date_path": "C:\\GPU_acquisition\\Post_processing\\20240318_15h53m05s",
     "input_data_file_name": "Input_data\\post_processing_data.bin"
 }

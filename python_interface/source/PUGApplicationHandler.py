@@ -26,10 +26,14 @@ from PyQt5 import uic
 
 from mainWindow import mainWindow
 
-from PyQt5 import Qt
+from PyQt5 import Qt,QtWidgets
 from Qtcp_comm import Qtcp_comm, TCP_command
+from Qudp_comm import Qudp_comm
 import struct
 
+from save_xcorr_utils import open_binary_file 
+
+UDP_remoteControlPort = 55554
 
 class PUGApplicationHandler(Qt.QObject):
     """Class to handle the PUG application."""
@@ -48,6 +52,10 @@ class PUGApplicationHandler(Qt.QObject):
         self.main_window.move(100, 100)  # Move to position (100, 100).
 
         self.TCP = Qtcp_comm(self)
+        
+        self.UDP_remoteControl = Qudp_comm(start_delimiter="", stop_delimiter="\n", listeningTo_ip="0.0.0.0", port=UDP_remoteControlPort)
+        self.UDP_remoteControl.setResponder(self)
+
 
         self.refreshTimer = Qt.QTimer(self)
         self.refreshTimer.timeout.connect(self.refreshTimerEvent)
@@ -75,6 +83,53 @@ class PUGApplicationHandler(Qt.QObject):
             message (str): The message to display.
         """
         self.message_window.messageBox.append(message)
+        
+    def newMessageUDP(self,message):
+        self.parse_UDP_RemoteControl(message)
+        
+    def errorFromUDP(self, error):
+        self.user_message(error)
+        
+    def parse_UDP_RemoteControl(self,message):
+        command, *arguments = message.split(',')
+        self.user_message("Remote control message = %s" % (message))
+        #self.user_message("arguments = %s" % (repr(arguments)))
+
+        channel = int(arguments[0])
+        if(channel != 1):
+           self.user_message("Only one channel supported")
+           return
+
+        match command:
+            case "doPreAcquisition":                    # Short acq of raw data onto which computeParams can be done
+                    self.doPreAcquisition(channel)
+            case "computeParameter":                    # Computing the correction parameters
+                    self.computeParameters(channel)
+            case "StartAcquisition":                    # Start the acquition & real time processing 
+                    self.startRealTimeACQ_GPU(channel)
+            case "StopAcquisition":                     # Start the acquition & real time processing
+                    self.stopRealTimeACQ_GPU(channel)                            
+            case "StartCoadd":                          # Start saving the coadded IGMS
+                    self.startSavingIGMS(channel)  
+            case "StopCoadd":                           # Stop saving the coadded IGMs
+                    self.stopSavingIGMS(channel) 
+            case "newIGMpathDelay":
+                    self.changeReferencesDelay_seconds(channel,float(arguments[1]))
+            case "newGroupName":
+                    self.changeExperimentName(channel,arguments[1])
+            case "newNumberCoaddCycles":
+                    self.user_message("Not implemented")
+            case "connectTCP":
+                    self.refreshTCP_connection()
+            case _:
+                self.user_message("Unknown command")
+
+
+    def refreshTCP_connection(self):
+        if(self.TCP.is_connected()):
+            self.TCP.disconnect()
+
+        self.TCP.connect()
 
     def tcp_connected(self):
         """Handle TCP connected event."""
@@ -113,7 +168,6 @@ class PUGApplicationHandler(Qt.QObject):
         """
         if(command==TCP_command.ack):
             self.user_message('Received command: ' + str(command))
-
         match command:
             case TCP_command.ack:
                 pass  # Do nothing.
@@ -158,6 +212,12 @@ class PUGApplicationHandler(Qt.QObject):
             case TCP_command.errorMessage:
                 char_values = ''.join([struct.pack('<I', value).decode('utf-8') for value in payload])
                 self.user_message("FROM PROCESSING APP:" + str(char_values))
+            case TCP_command.acquisitionStopped:
+                self.main_window.igm1_pathLength_spinBox.setEnabled(False)
+                self.main_window.igm1_experimentName.setEnabled(False)
+                self.main_window.igm1_saveIGMs_checkBox.setEnabled(False)
+                self.main_window.ACQ_GPU_button.setText("Start real time acq+processing")
+                self.main_window.rawAcquisition_button.setText("Acquire raw data to disk")
             case _:
                 self.user_message(f"Received unknown command: {command}")
 
@@ -188,7 +248,10 @@ class PUGApplicationHandler(Qt.QObject):
                 # self.rawAcquisition_button.setEnabled(False)
             case TCP_command.start_ACQ_GPU:
                 self.user_message("Acquisition starting failed")
-                self.main_window.pathLength_spinBox.setEnabled(False)
+                self.main_window.igm1_pathLength_spinBox.setEnabled(False)
+                self.main_window.igm1_experimentName.setEnabled(False)
+                self.main_window.igm1_saveIGMs_checkBox.setEnabled(False)
+                
                 self.main_window.ACQ_GPU_button.setText("Start real time acq+processing")
                 self.main_window.rawAcquisition_button.setText("Acquire raw data to disk")
             case TCP_command.stop_ACQ:
@@ -208,7 +271,9 @@ class PUGApplicationHandler(Qt.QObject):
             case TCP_command.start_GPU_fromFile:
                 self.user_message("Post processing failure")
                 self.main_window.do_post_process_button.setEnabled(True)
-                self.main_window.pathLength_spinBox.setEnabled(False)
+                self.main_window.igm1_pathLength_spinBox.setEnabled(False)
+                self.main_window.igm1_experimentName.setEnabled(False)
+                self.main_window.igm1_saveIGMs_checkBox.setEnabled(False)
             case _:
                 self.user_message(f"Failure for unknown command: {command}")
 
@@ -243,6 +308,15 @@ class PUGApplicationHandler(Qt.QObject):
                 self.user_message("Acquisition started")
                 self.main_window.ACQ_GPU_button.setText("STOP ACQ")
                 self.main_window.rawAcquisition_button.setText("STOP ACQ")
+               
+                self.main_window.igm1_pathLength_spinBox.setValue(self.main_window.apriori_json_form.jsonData['references_total_path_length_offset_m'])
+                self.main_window.igm1_experimentName.setText(self.main_window.apriori_json_form.jsonData['measurement_name'])
+                
+                self.main_window.igm1_pathLength_spinBox.setEnabled(True)
+                self.main_window.igm1_experimentName.setEnabled(True)
+                self.main_window.igm1_saveIGMs_checkBox.setEnabled(True)
+                
+                self.main_window.setADC_range(self.main_window.gage_json_form.jsonData['channel1_range_mV']/2)
             case TCP_command.stream_toFile:
                 self.main_window.preAcquisition_button.setEnabled(True)
                 self.main_window.rawAcquisition_button.setEnabled(True)
@@ -257,7 +331,9 @@ class PUGApplicationHandler(Qt.QObject):
                 self.main_window.computeParameters_button.setEnabled(False)
                 self.main_window.rawAcquisition_button.setEnabled(True)
                 self.main_window.ACQ_GPU_button.setEnabled(False)
-                self.main_window.pathLength_spinBox.setEnabled(False)
+                self.main_window.igm1_pathLength_spinBox.setEnabled(False)
+                self.main_window.igm1_experimentName.setEnabled(False)
+                self.main_window.igm1_saveIGMs_checkBox.setEnabled(False)
                 self.main_window.xcorr_file.close()
             case TCP_command.config_post_process:                
                 self.main_window.post_process_paths_menu.setEnabled(True)  
@@ -266,6 +342,13 @@ class PUGApplicationHandler(Qt.QObject):
             case TCP_command.start_GPU_fromFile:
                 self.user_message("Post processing succes")
                 self.main_window.do_post_process_button.setEnabled(True)
+                self.main_window.igm1_pathLength_spinBox.setValue(self.main_window.apriori_json_form.jsonData['references_total_path_length_offset_m'])
+                self.main_window.igm1_experimentName.setText(self.main_window.apriori_json_form.jsonData['measurement_name'])
+                
+                self.main_window.igm1_pathLength_spinBox.setEnabled(True)
+                self.main_window.igm1_experimentName.setEnabled(True)
+                self.main_window.igm1_saveIGMs_checkBox.setEnabled(True)
+                self.main_window.setADC_range(self.main_window.gage_json_form.jsonData['channel1_range_mV']/2)
             case _:
                 self.user_message(f"Success for unknown command: {command}")
 
@@ -302,6 +385,129 @@ class PUGApplicationHandler(Qt.QObject):
                 self.TCP.send_char(TCP_command.receive_gageCardParams, char_buffer)
             case _:
                 self.user_message("Unknown parameter set")
+
+    def doPreAcquisition(self,channel=1):
+        if(self.TCP.is_connected()):                
+            self.main_window.gage_json_form.push_toTCP()   
+            self.main_window.apriori_json_form.push_toTCP();  
+            # Change color while we are acquiring data
+            #self.preAcquisition_button.setStyleSheet("background-color: red; color: white")
+            self.main_window.preAcquisition_button.setEnabled(False)
+            self.main_window.rawAcquisition_button.setEnabled(False)
+            self.main_window.computeParameters_button.setEnabled(False)
+            self.main_window.igm1_pathLength_spinBox.setEnabled(False)
+            self.main_window.igm1_experimentName.setEnabled(False)
+            self.main_window.igm1_saveIGMs_checkBox.setEnabled(False)
+            
+            QtWidgets.QApplication.processEvents()  # Force the GUI to update
+            
+            self.TCP.send_nodata(TCP_command.start_preACQ_GPU)
+
+    def computeParameters(self,channel=1):
+        if(self.TCP.is_connected()):
+            # Change color while we are computing parameters
+            #self.computeParameters_button.setStyleSheet("background-color: red; color: white")
+            self.main_window.computeParameters_button.setEnabled(False)
+            self.main_window.preAcquisition_button.setEnabled(False)
+            self.main_window.rawAcquisition_button.setEnabled(False)
+            self.main_window.ACQ_GPU_button.setEnabled(False)
+            self.main_window.igm1_pathLength_spinBox.setEnabled(False)
+            self.main_window.igm1_experimentName.setEnabled(False)
+            self.main_window.igm1_saveIGMs_checkBox.setEnabled(False)
+            
+            QtWidgets.QApplication.processEvents()  # Force the GUI to update
+                
+            self.responder.TCP.send_nodata(TCP_command.compute_params)   
+
+    def stopRealTimeACQ_GPU(self,channel=1):
+            if(self.TCP.is_connected()):
+                    self.responder.TCP.send_nodata(TCP_command.stop_ACQ)
+
+    def startRealTimeACQ_GPU(self,channel=1):
+            if(self.TCP.is_connected()):
+                    self.TCP.send_nodata(TCP_command.start_ACQ_GPU) 
+                    self.main_window.xcorr_file = open_binary_file()
+                    
+    def startSavingIGMS(self,channel=1):
+            if(self.TCP.is_connected()):
+                
+                match channel:
+                    case 1:
+                        self.main_window.igm1_saveIGMs_checkBox.setChecked(True)
+                    case _:
+                        self.user_message("More than one channel not supported")
+                        return
+                    
+                self.TCP.send(TCP_command.startSaving,[int(channel)])
+
+
+                    
+    def stopSavingIGMS(self,channel=1):
+            if(self.TCP.is_connected()):
+                
+                match channel:
+                    case 1:
+                        self.main_window.igm1_saveIGMs_checkBox.setChecked(False)
+                    case _:
+                        self.user_message("More than one channel not supported")
+                        return
+                    
+                self.TCP.send(TCP_command.stopSaving,[int(channel)])
+       
+    def changeReferencesDelay_meters(self,channel,delay_meters):  # channel should be one... someday will support more channels
+            if(self.TCP.is_connected()):              
+                c = 299792458 # speed of light m/s
+                
+                match channel:
+                    case 1:
+                        if(delay_meters != self.main_window.igm1_pathLength_spinBox.value()):
+                            self.main_window.igm1_pathLength_spinBox.setValue(int(delay_meters))
+                    case _:
+                        self.user_message("More than one channel not supported")
+                        return
+                
+
+                fs = self.main_window.gage_json_form.jsonData['sampling_rate_Hz']
+             
+                path_length_pts = [round(delay_meters*fs/c)]
+             
+                self.TCP.send(TCP_command.receive_ref_pathLength, path_length_pts)
+                self.user_message('Channel ' +str(channel) + ' Path length changed to : ' + str(delay_meters) + ' m')
+
+
+    def changeReferencesDelay_seconds(self,channel,delay_seconds):  # channel should be one... someday will support more channels
+            if(self.TCP.is_connected()):   
+                c = 299792458 # speed of light m/s
+                
+                match channel:
+                    case 1:
+                        if(delay_seconds*c != self.main_window.igm1_pathLength_spinBox.value()):
+                            self.main_window.igm1_pathLength_spinBox.setValue(int(round(delay_seconds*c)))
+                    case _:
+                        self.user_message("More than one channel not supported")
+                        return
+                
+                
+                fs = self.main_window.gage_json_form.jsonData['sampling_rate_Hz']
+             
+                path_length_pts = [round(delay_seconds*fs)]
+             
+                self.TCP.send(TCP_command.receive_ref_pathLength, path_length_pts)
+                self.user_message('Channel ' +str(channel) + ' Path length changed to : ' + str(delay_seconds*c) + ' m')
+                 
+                
+    def changeExperimentName(self, channel,name):
+            if(self.TCP.is_connected()): 
+                match channel:
+                    case 1:
+                        if(name !=self.main_window.igm1_experimentName.text()):
+                            self.main_window.igm1_experimentName.setText(name)
+                    case _:
+                        self.user_message("More than one channel not supported")
+                        return
+                
+                self.TCP.send_char(TCP_command.changeExperimentName, str(channel) + name)
+                self.user_message(f'Channel {channel} Experiment name changed to: {name}')
 
     def refreshTimerEvent(self):
         """Handle the refresh timer event."""

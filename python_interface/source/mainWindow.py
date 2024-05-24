@@ -53,12 +53,15 @@ from QJsonForm import QJsonForm
 
 from collections import deque
 
-#import time
+from signal_process_utils import ffta
 
+#import time
+import re
 import json
 
+
 # For xcorr logging
-import datetime
+from save_xcorr_utils import open_binary_file, write_data_xcorr
 
 
 
@@ -98,6 +101,10 @@ class mainWindow(QtWidgets.QMainWindow):
      """Initialize the main window."""
      
      super(mainWindow, self).__init__()
+     
+     self.previous_experiment_names = {}  # Dictionary to store previous values
+     self.previous_reference_delays = {}
+     
      uic.loadUi('ui_elements/ThePUG_mainwindow.ui', self)
      
      self.max_ADC_range = 1 # Initial value
@@ -140,8 +147,9 @@ class mainWindow(QtWidgets.QMainWindow):
      self.gage_json_form.set_param_set_name('GaGe Card')
      self.gage_json_form.set_required_keys(['nb_channels', 'channel1_range_mV', 'sampling_rate_Hz'])   
      self.gage_json_form.load_fromfile('parameters/gageCard_params.json')
-     self.max_ADC_range = self.gage_json_form.jsonData['channel1_range_mV']/2 # From gage file
-     self.update_amplitude_thermometer_range()
+     
+     self.setADC_range(self.gage_json_form.jsonData['channel1_range_mV']/2)   # From gage file
+     
      
      ####### TAB: post-processing  #######          Could have a separate object for the tab.
      self.postProcessing_tab = uic.loadUi('ui_elements/tab_postProcessing.ui')
@@ -197,6 +205,7 @@ class mainWindow(QtWidgets.QMainWindow):
             self.configure_post_process_button.setEnabled(True)    
             self.do_post_process_button.setEnabled(False)    
                 
+
     def configure_post_process_button_pressed(self):
         self.responder.TCP.send_char(TCP_command.config_post_process,self.post_process_base_path.text()+ '\\' +self.post_process_paths_menu.currentText())
     
@@ -205,8 +214,8 @@ class mainWindow(QtWidgets.QMainWindow):
             self.gage_json_form.push_toTCP()   
             self.apriori_json_form.push_toTCP();  
             self.do_post_process_button.setEnabled(False)
-            self.pathLength_spinBox.setEnabled(True)
-            self.pathLength_spinBox.setValue(self.apriori_json_form.jsonData['references_total_path_length_offset_m'])
+            self.igm1_pathLength_spinBox.setEnabled(False)
+            self.igm1_pathLength_spinBox.setValue(self.apriori_json_form.jsonData['references_total_path_length_offset_m'])
 
             if self.xcorr_file is None:
                 self.xcorr_file = open_binary_file()
@@ -215,15 +224,12 @@ class mainWindow(QtWidgets.QMainWindow):
                 self.xcorr_file = open_binary_file()    
             QtWidgets.QApplication.processEvents()  # Force the GUI to update
             # Verify that the max adc range on channel 1 is the same
-            if self.max_ADC_range != self.gage_json_form.jsonData['channel1_range_mV']/2: # From gage file
-                # Reset the range thermometer
-                self.max_ADC_range = self.gage_json_form.jsonData['channel1_range_mV']/2
-                self.update_amplitude_thermometer_range()
+            
+            self.setADC_range(self.gage_json_form.jsonData['channel1_range_mV']/2)
             
             self.responder.TCP.send_nodata(TCP_command.compute_params)  
             self.responder.TCP.send_nodata (TCP_command.start_GPU_fromFile)
-                
-   
+            
     def init_controls_tab(self):
         
         #time.sleep(1.1)
@@ -240,8 +246,15 @@ class mainWindow(QtWidgets.QMainWindow):
         self.rawAcquisition_button = self.findChild(QtWidgets.QPushButton, 'rawAcquisition_Button')     
         self.rawAcquisition_button.clicked.connect(self.rawAcquisition_buttonPressed)
 
-        self.pathLength_spinBox = self.findChild(QtWidgets.QSpinBox, 'pathLength_Spinbox')     
-        self.pathLength_spinBox.editingFinished.connect(self.pathLength_spinBoxChanged)
+        self.igm1_pathLength_spinBox = self.findChild(QtWidgets.QSpinBox, 'igm1_pathLength_Spinbox')     
+        self.igm1_pathLength_spinBox.editingFinished.connect(self.igm_pathLength_spinBoxChanged)
+
+        self.igm1_experimentName = self.findChild(QtWidgets.QLineEdit, 'igm1_expName')     
+        self.igm1_experimentName.editingFinished.connect(self.igm_experimentNameChanged)
+
+        self.igm1_saveIGMs_checkBox = self.findChild(QtWidgets.QCheckBox, 'igm1_saveIGMs')     
+        self.igm1_saveIGMs_checkBox.clicked.connect(self.igm_saveIGMs_checkBoxPressed)   
+        self.igm1_saveIGMs_checkBox.setStyleSheet("QCheckBox { background-color: green; }")
     
         self.preAcquisition_button.setEnabled(False)
         self.computeParameters_button.setEnabled(False)
@@ -295,32 +308,12 @@ class mainWindow(QtWidgets.QMainWindow):
         self.displayedSignal1 = self.findChild(QtWidgets.QComboBox, 'displayedSignal_1')
         self.displayedSignal2 = self.findChild(QtWidgets.QComboBox, 'displayedSignal_2')
 
-    def update_amplitude_thermometer_range(self):
         self.ADC_range_thermo = self.findChild(ThermometerWidget, 'ADC_range')
-        
-        # Resetting the range and scale
-        self.ADC_range_thermo.setRange(0, self.max_ADC_range)
-        self.ADC_range_thermo.setScale(0, self.max_ADC_range)
         
         # Resetting the value and fill color
         self.ADC_range_thermo.setValue(0)
         self.ADC_range_thermo.setFillColor(Qt.Qt.blue)
         
-        # Clearing previous ticks and labels
-        self.ADC_range_thermo.clearTicks()
-    
-        # Generating new ticks and labels
-        ticksListMinor = np.arange(0, 1.1, 0.2) * self.max_ADC_range
-        ticksListMajor = np.arange(0.1, 0.91, 0.2) * self.max_ADC_range
-        ticksLabelMajor = list(map(str, (np.round(ticksListMajor, 0))))
-        
-        # Setting new ticks and labels
-        self.ADC_range_thermo.setTicks(ticksListMajor, ticksListMinor, ticksLabelMajor)
-        
-        # Disabling the thermometer widget
-        self.ADC_range_thermo.setEnabled(False)
-
-     
     def on_tab_change(self, index):
         # This function is called whenever the current tab changes
         #print(f"Tab {index + 1} is now displayed")
@@ -335,13 +328,7 @@ class mainWindow(QtWidgets.QMainWindow):
             self.responder.TCP.disconnect()
         if (self.xcorr_file is not None and not self.xcorr_file.closed): # Close xcorr file if open
             self.xcorr_file.close()
-    def saveIGMs_checkBoxPressed(self):
-        """Handle the saveIGMs_checkBox click event."""
-        if(self.saveIGMs_checkBox.isChecked()==True):
-            self.filePath.setStyleSheet("QLineEdit" "{""background : green;""}")
-        else:
-            self.filePath.setStyleSheet("QLineEdit" "{""background : red;""}")    
-
+               
     def signal1_ChoiceChanged(self,index):
         """User changed the signal requested for buffer 1"""
        # self.responder.user_message('Signal 1 choice changed')
@@ -362,17 +349,7 @@ class mainWindow(QtWidgets.QMainWindow):
         # Remember default values
         #default_stylesheet = self.preAcquisition_button.styleSheet()
 
-        if(self.responder.TCP.is_connected()):                
-            self.gage_json_form.push_toTCP()   
-            self.apriori_json_form.push_toTCP();  
-            # Change color while we are acquiring data
-            #self.preAcquisition_button.setStyleSheet("background-color: red; color: white")
-            self.preAcquisition_button.setEnabled(False)
-            self.rawAcquisition_button.setEnabled(False)
-            self.computeParameters_button.setEnabled(False)
-            self.pathLength_spinBox.setEnabled(False)
-            QtWidgets.QApplication.processEvents()  # Force the GUI to update
-            self.responder.TCP.send_nodata(TCP_command.start_preACQ_GPU)
+        self.responder.doPreAcquisition()
                 
             #self.preAcquisition_button.setStyleSheet(default_stylesheet)   
        
@@ -383,17 +360,7 @@ class mainWindow(QtWidgets.QMainWindow):
         self.responder.user_message('compute params Button pressed')
         #default_stylesheet = self.computeParameters_button.styleSheet()
 
-        if(self.responder.TCP.is_connected()):
-            # Change color while we are computing parameters
-            #self.computeParameters_button.setStyleSheet("background-color: red; color: white")
-            self.computeParameters_button.setEnabled(False)
-            self.preAcquisition_button.setEnabled(False)
-            self.rawAcquisition_button.setEnabled(False)
-            self.ACQ_GPU_button.setEnabled(False)
-            self.pathLength_spinBox.setEnabled(False)
-            QtWidgets.QApplication.processEvents()  # Force the GUI to update
-                
-            self.responder.TCP.send_nodata(TCP_command.compute_params)        
+        self.responder.computeParameters()     
              
             #self.computeParameters_button.setStyleSheet(default_stylesheet)   
         
@@ -402,21 +369,13 @@ class mainWindow(QtWidgets.QMainWindow):
             only possible if computed params available and good """
             
             self.responder.user_message('ACQ-GPU Button pressed')
-            self.pathLength_spinBox.setEnabled(True)
-            self.pathLength_spinBox.setValue(self.apriori_json_form.jsonData['references_total_path_length_offset_m'])
-            QtWidgets.QApplication.processEvents()  # Force the GUI to update
-            # Verify that the max adc range on channel 1 is the same
-            if self.max_ADC_range != self.gage_json_form.jsonData['channel1_range_mV']/2: # From gage file
-                # Reset the range thermometer
-                self.max_ADC_range = self.gage_json_form.jsonData['channel1_range_mV']/2
-                self.update_amplitude_thermometer_range()
-                
+    
             if(self.responder.TCP.is_connected()):
-                self.xcorr_file = open_binary_file()
                 if(self.ACQ_GPU_button.text() == "STOP ACQ" or  self.rawAcquisition_button.text() == "STOP ACQ"):
-                    self.responder.TCP.send_nodata(TCP_command.stop_ACQ)
+                    self.responder.stopRealTimeACQ_GPU()
                 else:
-                    self.responder.TCP.send_nodata(TCP_command.start_ACQ_GPU) 
+                    self.responder.startRealTimeACQ_GPU()
+
                     
     def rawAcquisition_buttonPressed(self): 
             """User asked start real time raw data acquisition  
@@ -434,18 +393,86 @@ class mainWindow(QtWidgets.QMainWindow):
                     self.rawAcquisition_button.setEnabled(False)
                     self.computeParameters_button.setEnabled(False)
                     self.ACQ_GPU_button.setEnabled(False)
-                    self.pathLength_spinBox.setEnabled(False)
+                    self.igm1_pathLength_spinBox.setEnabled(False)
                     QtWidgets.QApplication.processEvents()  # Force the GUI to update
                     self.responder.TCP.send_nodata(TCP_command.stream_toFile)  
                     
-    def pathLength_spinBoxChanged(self):
+    def igm_pathLength_spinBoxChanged(self):
             """User changed the path length offset of the
             references"""
-            c = 299792458 # speed of light m/s
-            self.responder.user_message('Path length changed to : ' + str(self.pathLength_spinBox.value()) + ' m')
-            path_length_pts = [round(self.pathLength_spinBox.value()*
-                                     self.gage_json_form.jsonData['sampling_rate_Hz']/c)]
-            self.responder.TCP.send(TCP_command.receive_ref_pathLength, path_length_pts)
+           
+            sender = self.sender()
+            sender_name = sender.objectName()
+            
+            # Extract the channel number from the sender name
+            match = re.match(r'igm(\d+)_', sender_name)
+            if match:
+                channel_number = int(match.group(1)) 
+                   
+            value = sender.value()
+                
+            # Check if the text has actually changed
+            previous_values = self.previous_reference_delays.get(channel_number, "")
+                
+            if value != previous_values:        
+                self.responder.changeReferencesDelay_meters(channel_number,value)
+                self.previous_reference_delays[channel_number] = value  # Update the stored value
+        
+    def igm_saveIGMs_checkBoxPressed(self):
+            """Handle the saveIGMs_checkBox click event."""
+            
+            sender = self.sender()
+            sender_name = sender.objectName()
+            
+            checkedValue = sender.isChecked()
+            
+            # Extract the channel number from the sender name
+            match = re.match(r'igm(\d+)_', sender_name)
+            if match:
+                channel_number = int(match.group(1))
+            
+            if checkedValue:
+                sender.setStyleSheet("QCheckBox { background-color: green; }")
+                self.responder.startSavingIGMS(channel_number)
+            else:
+                sender.setStyleSheet("QCheckBox { background-color: red; }")
+                self.responder.stopSavingIGMS(channel_number)
+            
+
+    def igm_experimentNameChanged(self):
+        
+            sender = self.sender()
+            sender_name = sender.objectName()
+            
+            # Extract the channel number from the sender name
+            match = re.match(r'igm(\d+)_', sender_name)
+            if match:
+                channel_number = int(match.group(1))
+                
+            experiment_name = sender.text()  # Use the text() method to get the QLineEdit text
+            
+            # Check if the text has actually changed
+            previous_name = self.previous_experiment_names.get(channel_number, "")
+            
+            if experiment_name != previous_name:
+                self.responder.changeExperimentName(channel_number,experiment_name)
+                self.previous_experiment_names[channel_number] = experiment_name  # Update the stored value
+
+        
+    def setADC_range(self,range):
+            # Resetting the range and scale
+            if(self.max_ADC_range !=range):
+                self.max_ADC_range = range
+                   
+                # updating the visual thermomoter display
+                self.ADC_range_thermo.setRange(0, self.max_ADC_range)    
+                # Generating new ticks and labels
+                ticksListMinor = np.arange(0, 1.1, 0.2) * self.max_ADC_range
+                ticksListMajor = np.arange(0.1, 0.91, 0.2) * self.max_ADC_range
+                ticksLabelMajor = list(map(str, (np.round(ticksListMajor, 0))))
+                   
+                # Setting new ticks and labels
+                self.ADC_range_thermo.setTicks(ticksListMajor, ticksListMinor, ticksLabelMajor)
             
     def tcp_buttonPressed(self):
         """User pressed the button to connect to TCP server."""
@@ -704,55 +731,4 @@ class mainWindow(QtWidgets.QMainWindow):
             if (self.displayedSignal2.currentIndex() == display_signals.xcorr_positions ):
                 self.updateGraphic2()                
           
-# Do a proper fft on a data set
-def ffta(x=None, N=None, Dim=None):
-  
-    if N is None:
-        N = np.max(x.shape)
-    if Dim is None:
-        Dim = np.argmax(x.shape)
-    
-    y = np.fft.fftshift(np.fft.fft(x, n=N, axis=Dim))
-    
-    if N % 2 == 0:
-        # even
-        f = np.arange(-N/2, N/2) / N
-    else:
-        # odd
-        f = np.arange(-(N-1)/2, (N-1)/2 + 1) / N
-    return y, f                    
 
-# These 4 functions are used to generate the Xcorr records of each measurements
-# The xcorr amplitude is basically a measurement of the amplitude of each IGM
-# You can convert from xcorr amplitude to mV with xcorr_factor_mV
-# The xcorr records are updated with python through the tcp server so you might
-# not receive all the buffers depending on the buffer rate and tcp server refresh rate
-def create_unique_filename():
-    # Generate a filename with the current date and time
-    now = datetime.datetime.now()
-    return now.strftime("Xcorr_records//data_xcorr_%Y-%m-%d_%H-%M-%S.bin")
-
-def open_binary_file():
-    # Create a unique filename for each data file
-    filename = create_unique_filename()
-    # Open the file in append and binary mode, return the file object
-    return open(filename, 'ab')
-
-def pack_data(date, data_points):
-    # Pack the date as string and data points as doubles
-    # Example date format: 'YYYY-MM-DD HH:MM:SS' which is 19 bytes
-    # Example for 3 data points: '19sddd' (s for string, d for double)
-    date_str = date.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] # Keep only up to millisecond
-    format_str = '23sI' + 'f' * len(data_points)
-    return struct.pack(format_str, date_str.encode(), len(data_points), *data_points)
-
-def write_data_xcorr(file, data_points):
-    if not file.closed: # Make sure the file is still open
-        # Get the current date and time, up to the second
-        current_datetime = datetime.datetime.now()
-        # Pack the date and data points into binary format
-        packed_data = pack_data(current_datetime, data_points)
-        # Write the packed data to the file
-        file.write(packed_data)
-        # Optionally flush the file to ensure writing to disk
-        file.flush()

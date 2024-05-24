@@ -49,11 +49,12 @@ class ThermometerWidget(QtWidgets.QWidget):
         self.initUI()
 
     def setRange(self, min_value, max_value):
-        if self.max_value <= self.min_value:
-            self.max_value = self.min_value+1   # avoids divide by 0 error later in setValue()
-        self.min_value = min_value
-        self.max_value = max_value
-        #print("min = %f, max = %f" % (self.min_value, self.max_value))
+        if( (min_value != self.min_value) or  (max_value != self.max_value) ):
+           if self.max_value <= self.min_value:
+               self.max_value = self.min_value+1   # avoids divide by 0 error later in setValue()
+           self.min_value = min_value
+           self.max_value = max_value
+           #print("min = %f, max = %f" % (self.min_value, self.max_value))
 
     def setScale(self, min_value, max_value):
         # just for compatibility with Qwt's thermometer
@@ -99,6 +100,7 @@ class ThermometerWidget(QtWidgets.QWidget):
 
     def setTicks(self, ticksValuesList, minorTicksValuesList, ticksTextList):
 
+        self.clearTicks()
         
         # we need a black background to create the lines
         PaletteBlack = Qt.QPalette()
