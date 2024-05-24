@@ -506,7 +506,7 @@ class PUGApplicationHandler(Qt.QObject):
                         self.user_message("More than one channel not supported")
                         return
                 
-                self.TCP.send_char(TCP_command.changeExperimentName, str(channel) + name)
+                self.TCP.send_char(TCP_command.changeExperimentName, str(channel)+ ',' + name)
                 self.user_message(f'Channel {channel} Experiment name changed to: {name}')
 
     def refreshTimerEvent(self):

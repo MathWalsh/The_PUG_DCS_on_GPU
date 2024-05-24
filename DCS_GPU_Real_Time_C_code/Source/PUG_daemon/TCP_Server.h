@@ -31,36 +31,45 @@ class MainThreadHandler; // Forward dclaration to avoid circular dependeny betwe
 
 typedef enum					// Our allowed TCP commands, the Python interface has an equivalent int enum
 {
-	ack,					// acknowledgment, used for initial handshake
-	start_preACQ_GPU,       // do a short aquisition to enable computation of DCS parameters
-	compute_params,         // Compute DCS parameter from pre - ACQ data + apriori + gage params
-	start_ACQ_GPU,			// Start Acquistion and GPU processing
-	stream_toFile,			// Acquire raw data to ram and save to file, for later post - processing
-	start_GPU_fromFile, 	// Start GPU processing from file
-	send_buf1,	 			// Ask for the data in buffer 1
-	receive_buf1,			// answer to ask, payload contains buffer 1 data
-	set_buf1_sig,			// select wich signal the processing code puts in buffer 1
-	send_buf2, 				// Ask for the data in buffer 1
-	receive_buf2,			
-	set_buf2_sig,
-	send_computedParams,    // asks the C daemon to send the computed params, daemon answers with rcv
-	receive_computedParams, // payload contains JSON string with DCS computed params
-	send_aprioriParams,     // asks the C daemon to send the apriori params, daemon answers with rcv
-	receive_aprioriParams,  // payload contains JSON string with DCS apriori params
-	send_gageCardParams,    // asks the C daemon to send the gageCard params, daemon answers with rcv
-	receive_gageCardParams,  // payload contains JSON string with gage card params
+	ack,					 // acknowledgment, used for initial handshake
+	start_preACQ_GPU,        // do a short aquisition to enable computation of DCS parameters
+	compute_params,          // Compute DCS parameter from pre - ACQ data + apriori + gage params
+	start_ACQ_GPU,			 // Start Acquistion and GPU processing
+	stream_toFile,			 // Acquire raw data to ram and save to file, for later post - processing
+	start_GPU_fromFile, 	 // Start GPU processing from file
+	stop_ACQ,				 // stop / abord acquisition thread
+	acquisitionStopped,		 // C app sends that when acquistion stops
+
 	success,				 // payload contains which request was success full
 	failure,				 // payload contains wich request failed
 	error,					 // payload contains error string
-	stop_ACQ,				 //  stop / abord acquisition thread
-	send_rawData_paths,      // asks for raw data files that can be post - processed by GPU
-	receive_rawData_paths,   // sends the path, payload contains json with avail data paths
-	config_post_process,      // tells the deamon which file, it responds succes / fail and then sending JSON params
 	errorMessage,			 // Payload contains a string describing the error that happened
+
+	startSaving,			 // start saving co-added igm file payload contains channel #
+	stopSaving,				 // stop saving co-added igm file payload contains channel #
+	changeExperimentName,	 // change the experiement name, payload is "chan#,name"
+	receive_ref_pathLength,	 // Receive the new ref path length offset by TCP and update the local DcsCfg
+
+	send_buf1,	 			 // Ask for the data in buffer 1
+	receive_buf1,			 // answer to ask, payload contains buffer 1 data
+	set_buf1_sig,			 // select wich signal the processing code puts in buffer 1
+	send_buf2, 				 // Ask for the data in buffer 1
+	receive_buf2,			
+	set_buf2_sig,
 	send_bufX,				 // info from Xcorr is sent in buffer X (max, positio and phase of each IGM)
 	receive_bufX,
 	set_bufX_sig,
-	receive_ref_pathLength	// Receive the new ref path length offset by TCP and update the local DcsCfg
+
+	send_computedParams,     // asks the C daemon to send the computed params, daemon answers with rcv
+	receive_computedParams,  // payload contains JSON string with DCS computed params
+	send_aprioriParams,      // asks the C daemon to send the apriori params, daemon answers with rcv
+	receive_aprioriParams,   // payload contains JSON string with DCS apriori params
+	send_gageCardParams,     // asks the C daemon to send the gageCard params, daemon answers with rcv
+	receive_gageCardParams,  // payload contains JSON string with gage card params
+
+	send_rawData_paths,      // asks for raw data files that can be post - processed by GPU
+	receive_rawData_paths,   // sends the path, payload contains json with avail data paths
+	config_post_process     // tells the deamon which file, it responds succes / fail and then sending JSON params
 } TCP_commands;
 
 struct TCP_packet				// Variable length struct for TCP commands in our protocol

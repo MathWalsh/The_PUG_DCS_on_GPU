@@ -71,6 +71,7 @@ typedef struct
 	int nb_pts_interval_interpolation;
 	int nb_coefficients_filters; // 32 or 64
 	int do_post_processing;
+	char* measurement_name;
 
 	// From gageCard_params.json
 	int nb_channels;

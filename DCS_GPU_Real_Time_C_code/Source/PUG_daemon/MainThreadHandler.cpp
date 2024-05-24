@@ -419,6 +419,62 @@ void MainThreadHandler::parseTCPCommand(std::list<Connection>::iterator con_hand
 		threadControl.ParametersChanged = true;
 		break;
 	}
+	case TCP_commands::changeExperimentName: // The paylaod contains e.g  1,MyNiceMeasurement  everything before comma is chan number.
+	{
+		// Find the first comma in the string anything before the coma is the channel number
+		
+		char* receivedString = _strdup((const char*)dataArray.data());
+		char* comma_pos = strchr(receivedString, ',');
+
+		// If a comma is found separate the channel number and nameString
+		if (comma_pos != nullptr) 
+		{
+			// Null-terminate the integer part
+			*comma_pos = '\0';
+
+			// Convert the integer part to an integer
+			int channel = atoi(receivedString);
+
+			char* nameString = comma_pos + 1;
+			strcpy(receivedString, nameString);
+		}
+
+		threadControl.sharedMutex.lock();
+		DcsProcessing.modify_DCSCONFIG_field("measurement_name", (const void*)receivedString);
+		threadControl.sharedMutex.unlock();
+		threadControl.ParametersChanged = true;
+
+		free(receivedString);
+
+		break;
+	}
+
+	case TCP_commands::startSaving:
+	{
+		int save = 1;
+
+		int channel = *(const int*)dataArray.data(); // Payload contains the channel number
+
+		threadControl.sharedMutex.lock();
+		DcsProcessing.modify_DCSCONFIG_field("save_data_to_file", (const void*)&save);
+		threadControl.sharedMutex.unlock();
+		threadControl.ParametersChanged = true;
+		break;
+	}
+
+	case TCP_commands::stopSaving:
+	{
+		int save = 0;
+
+		int channel = *(const int*)dataArray.data(); // Payload contains the channel number
+
+		threadControl.sharedMutex.lock();
+		DcsProcessing.modify_DCSCONFIG_field("save_data_to_file", (const void*)&save);
+		threadControl.sharedMutex.unlock();
+		threadControl.ParametersChanged = true;
+		break;
+	}
+
 	default:
 		std::cout << "Unknown Command" << std::endl;
 	}
@@ -1769,7 +1825,8 @@ void MainThreadHandler::CheckOnProcessingThread()
 	//	threadControl.AcquisitionStarted = FALSE;
 	//	threadControl.ThreadReady = FALSE;
 
-	
+	if(threadControl.ThreadError || threadControl.AbortThread)
+		srv.do_async_write_bin_to_all(srv.prepareTCP_packet(acquisitionStopped, 0, 0));
 
 	//	//	//DisplayResults(AcquisitionCard, GpuCard, GpuCard.getTotalData(), GpuCard.getDiffTime())
 	//}

@@ -36,40 +36,46 @@ from enum import IntEnum
 
 class TCP_command(IntEnum):
     """Enumeration representing TCP commands."""
-    ack                     = 0			# acknowledgment, used for initial handshake
-    start_preACQ_GPU        = 1         # do a short aquisition to enable computation of DCS parameters
-    compute_params          = 2         # Compute DCS parameter from pre-ACQ data + apriori + gage params
-    start_ACQ_GPU           = 3			# Start Acquistion and GPU processing
-    stream_toFile           = 4			# Acquire raw data to ram and save to file, for later post-processing
-    start_GPU_fromFile      = 5 		# Start GPU processing from file
-    send_buf1               = 6 		# Ask for the data in buffer 1 
-    receive_buf1            = 7         # answer to ask, payload contains buffer 1 data
-    set_buf1_sig            = 8         # select wich signal the processing code puts in buffer 1
-    send_buf2               = 9 		# Ask for the data in buffer 1 
-    receive_buf2            = 10
-    set_buf2_sig            = 11
-    send_computedParams     = 12        # asks the C daemon to send the computed params, daemon answers with rcv
-    receive_computedParams  = 13        # payload contains JSON string with DCS computed params
-    send_aprioriParams      = 14        # asks the C daemon to send the apriori params, daemon answers with rcv
-    receive_aprioriParams   = 15        # payload contains JSON string with DCS apriori params
-    send_gageCardParams     = 16        # asks the C daemon to send the gageCard params, daemon answers with rcv
-    receive_gageCardParams  = 17        # payload contains JSON string with gage card params    
-    success                 = 18        # payload contains which request was success full
-    failure                 = 19        # payload contains wich request failed
-    error                   = 20        # payloas contains error string
-    stop_ACQ                = 21        # stops acq / abort processing thread
-    send_rawData_paths      = 22        # asks for raw data files that can be post-processed by GPU
-    receive_rawData_paths   = 23        # sends the path, payload contains json with avail data paths
-    config_post_process     = 24        # tells the deamon which file, it responds succes/fail and then sending JSON params
-    errorMessage            = 25        # Payload contains a string describing the error that happened
-    send_bufX               = 26
-    receive_bufX            = 27
-    set_bufX_sig            = 28
-    receive_ref_pathLength  = 29        # Receive the new ref path length offset by TCP and update the local DcsCfg
-    acquisitionStopped      = 30        # C app sends that when acquistion stops. 
-    startSaving             = 31        # start saving co-added igm file payload contains channel #
-    stopSaving              = 32        # stop saving co-added igm file payload contains channel #
-    changeExperimentName    = 33        # change the experiement name, payload is "chan#,name"
+    ack                     =0	 #// acknowledgment, used for initial handshake
+    start_preACQ_GPU        =1   #// do a short aquisition to enable computation of DCS parameters
+    compute_params          =2   #// Compute DCS parameter from pre - ACQ data + apriori + gage params
+    start_ACQ_GPU			=3   #// Start Acquistion and GPU processing
+    stream_toFile			=4   #// Acquire raw data to ram and save to file, for later post - processing
+    start_GPU_fromFile 	    =5   #// Start GPU processing from file
+    stop_ACQ				=6   #// stop / abord acquisition thread
+    acquisitionStopped		=7   #// C app sends that when acquistion stops
+
+    success				    =8   #// payload contains which request was success full
+    failure				    =9   #// payload contains wich request failed
+    error					=10  #// payload contains error string
+    errorMessage			=11  #// Payload contains a string describing the error that happened
+
+    startSaving			    =12  #// start saving co-added igm file payload contains channel #
+    stopSaving				=13  #// stop saving co-added igm file payload contains channel #
+    changeExperimentName	=14  #// change the experiement name, payload is "chan#,name"
+    receive_ref_pathLength	=15  #// Receive the new ref path length offset by TCP and update the local DcsCfg
+
+    send_buf1	 			=16  #// Ask for the data in buffer 1
+    receive_buf1			=17  #// answer to ask, payload contains buffer 1 data
+    set_buf1_sig			=18  #// select wich signal the processing code puts in buffer 1
+    send_buf2 				=19  #// Ask for the data in buffer 1
+    receive_buf2			=20
+    set_buf2_sig            =21
+    send_bufX				=22  #// info from Xcorr is sent in buffer X (max, positio and phase of each IGM)
+    receive_bufX            =23  
+    set_bufX_sig            =24
+
+    send_computedParams     =25  #// asks the C daemon to send the computed params, daemon answers with rcv
+    receive_computedParams  =26  #// payload contains JSON string with DCS computed params
+    send_aprioriParams      =27  #// asks the C daemon to send the apriori params, daemon answers with rcv
+    receive_aprioriParams   =28  #// payload contains JSON string with DCS apriori params
+    send_gageCardParams     =29  #// asks the C daemon to send the gageCard params, daemon answers with rcv
+    receive_gageCardParams  =30  #// payload contains JSON string with gage card params
+
+    send_rawData_paths      =31  #// asks for raw data files that can be post - processed by GPU
+    receive_rawData_paths   =32  #// sends the path, payload contains json with avail data paths
+    config_post_process     =33  #// tells the deamon which file, it responds succes / fail and then sending JSON params
+
 
 class Qtcp_comm:
     """Class representing TCP communication.

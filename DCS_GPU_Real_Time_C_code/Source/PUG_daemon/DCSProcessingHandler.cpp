@@ -513,6 +513,11 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
         if (cJSON_IsNumber(item)) {
             DcsCfg.nb_coefficients_filters = item->valueint;
         }
+
+        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "measurement_name");
+        if (cJSON_IsString(item) && (item->valuestring != NULL)) {
+            DcsCfg.measurement_name = _strdup(item->valuestring);
+        }
     }
 }
 
@@ -657,6 +662,13 @@ void DCSProcessingHandler::modify_DCSCONFIG_field(const char* field, const void*
     else if (strcmp(field, "ref_clock_10MHz") == 0) {
         DcsCfg.ref_clock_10MHz = *(const int*)value;
     }
+    else if (strcmp(field, "measurement_name") == 0) {
+
+        DcsCfg.measurement_name = _strdup((const char*)value);
+    }
+
+
+
     // From computed_params.json
     else if (strcmp(field, "data_absolute_path") == 0) {
         free((void*)DcsCfg.data_absolute_path);
