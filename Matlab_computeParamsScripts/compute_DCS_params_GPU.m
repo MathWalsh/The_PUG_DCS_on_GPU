@@ -246,13 +246,17 @@ else
     clear phi1 phi1C
 
     %%
-    if (apriori_params.spectro_mode == 0)
+    if (apriori_params.spectro_mode == 0 || apriori_params.spectro_mode == 2)
         % We take the combination with the minimum variance
         if idxmin == 1
 
             conjugateCW1_C1 = 0;
             conjugateCW1_C2 = 0;
-            refCW1 = ref1;
+            if (apriori_params.spectro_mode == 0)
+                refCW1 = ref1;
+            elseif (apriori_params.spectro_mode == 2)
+                refCW1 = ref1.^(apriori_params.nb_harmonic); % this should fold around fr/2, how can we achive this...
+            end
             phiFPC = unwrap(angle(double(refCW1))); % calculate phase to correct
 
             % We have two possibilities left, we try both possibilities and take
@@ -262,8 +266,10 @@ else
 
             [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, ~, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
+            phiZPD1 = phiZPD1(2:end);
             [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, ~, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
+            phiZPD2 = phiZPD2(2:end);
 
             % Minimum variance means we should have the right sign (could be wrong
             % with unwrapping errors
@@ -272,8 +278,11 @@ else
                 if max(abs(diff(detrend(phiZPD1)))) >3*pi/4
                     fprintf('Potential unwrap errors on phase corrected data... \n Verify correction parameters\n')
                 end
-
-                fdfr(1) = fPC(1);
+                if (apriori_params.spectro_mode == 0)
+                    fdfr(1) = fPC(1);
+                elseif (apriori_params.spectro_mode == 2)
+                    fdfr(1) = apriori_params.nb_harmonic*fPC(1); % modulo fr/2?
+                end
                 template = template1;
                 templateFull = templateFull1;
                 IGMsFPC = IGMsFPC1;
@@ -286,8 +295,12 @@ else
                 if max(abs(diff(detrend(phiZPD2)))) >3*pi/4
                     fprintf('Potential unwrap errors on phase corrected data... \n Verify correction parameters\n')
                 end
-
-                fdfr(1) = -fPC(1);
+                if (apriori_params.spectro_mode == 0)
+                    fdfr(1) = -fPC(1);
+                elseif (apriori_params.spectro_mode == 2)
+                    fdfr(1) = -apriori_params.nb_harmonic*fPC(1); % modulo fr/2?
+                end
+                
                 refCW1 = conj(refCW1);
                 conjugateCW1_C1 = 1;
                 conjugateCW1_C2 = 1;
@@ -306,7 +319,11 @@ else
             conjugateCW1_C1 = 0;
             conjugateCW1_C2 = 1;
             conjugatePhaseCorrection = 0;
-            refCW1 = ref1C;
+            if (apriori_params.spectro_mode == 0)
+                refCW1 = ref1C;
+            elseif (apriori_params.spectro_mode == 2)
+                refCW1 = ref1C.^(apriori_params.nb_harmonic); % this should fold around fr/2, how can we achive this...
+            end            
             phiFPC = unwrap(angle(double(refCW1))); % calculate phase to correct
 
             % We have two possibilities left, we try both possibilities and take
@@ -316,8 +333,11 @@ else
 
             [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, ~, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
+            phiZPD1 = phiZPD1(2:end);
+
             [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, ~, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
+            phiZPD2 = phiZPD2(2:end);
 
             % Minimum variance means we should have the right sign (could be wrong
             % with unwrapping errors
@@ -327,7 +347,11 @@ else
                     fprintf('Potential unwrap errors on phase corrected data... \n Verify correction parameters\n')
                 end
 
-                fdfr(1) = fPC(2);
+                if (apriori_params.spectro_mode == 0)
+                    fdfr(1) = fPC(2);
+                elseif (apriori_params.spectro_mode == 2)
+                    fdfr(1) = apriori_params.nb_harmonic*fPC(2); % modulo fr/2?
+                end
                 template = template1;
                 templateFull = templateFull1;
                 IGMsFPC = IGMsFPC1;
@@ -341,7 +365,11 @@ else
                     fprintf('Potential unwrap errors on phase corrected data... \n Verify correction parameters\n')
                 end
 
-                fdfr(1) = -fPC(2);
+                if (apriori_params.spectro_mode == 0)
+                    fdfr(1) = -fPC(2);
+                elseif (apriori_params.spectro_mode == 2)
+                    fdfr(1) = -apriori_params.nb_harmonic*fPC(2); % modulo fr/2?
+                end
                 refCW1 = conj(refCW1);
                 conjugateCW1_C1 = 1;
                 conjugateCW1_C2 = 0;
@@ -406,9 +434,24 @@ else
             % the factor and you get a better resampling.
 
             % Expected dfr tone frequency
+            if (apriori_params.spectro_mode == 0)
+                f_laser = c/(apriori_params.reference1_laser_wvl_nm*1e-9);
+            elseif  (apriori_params.spectro_mode == 2)
+                f_laser = c/(apriori_params.reference1_laser_wvl_nm/apriori_params.nb_harmonic*1e-9);
 
-            f_laser = c/(apriori_params.reference1_laser_wvl_nm*1e-9);
-            Ntooth = round(f_laser/apriori_params.fr_approx_Hz);
+            end
+            try
+                if (apriori_params.reference2_laser_wvl_nm == 0)
+                    f_laser2 = 0;
+                else
+                    f_laser2 = c/(apriori_params.reference2_laser_wvl_nm*1e-9);
+                end
+            catch
+                f_laser2 = 0;
+            end
+
+            Ntooth = round(abs(f_laser-f_laser2)/apriori_params.fr_approx_Hz);
+
             f_dfr_true = Ntooth*dfr;
 
             % Height possible combinations of dfr
@@ -450,7 +493,9 @@ else
 
                 % Factor to increase the slope to the right one
                 dfr_unwrap_factor(i) = abs(f_dfr_true/f_dfr);
-
+                if (Nwraps(idx_sort(i)) < 1)
+                    dfr_unwrap_factor(i) = 1;
+                end
                 % Make the new slope
                 new_grid_ref = normalized_slope_dfr(2) + ...
                     dfr_unwrap_factor(i)*((0:N-1)*abs(normalized_slope_dfr(1)))';
@@ -488,7 +533,7 @@ else
                 x =1;
                 % normalized_phase_slope = normalized_phase_slope + normalized_phase_slope1;
                 normalized_phase_slope = normalized_phase_slope1;
-
+                
                 ptsPerIGM_sub = ptsPerIGM_sub1;
                 template = template1;
                 templateFull = templateFull1;
@@ -551,7 +596,8 @@ else
                     conjugateCW2_C1 = 0;
                     conjugateCW2_C2 = 1;
                 case 8
-                    conjugateDfr1 = 1;        conjugateDfr2 = 0;
+                    conjugateDfr1 = 1;
+                    conjugateDfr2 = 0;
                     conjugateCW2_C1 = 0;
                     conjugateCW2_C2 = 1;
             end
@@ -559,6 +605,7 @@ else
             projection_factor = 0;
             projected_wvl = 0;
             fshift_optical = normalized_phase_slope/2/pi*fs/dfr*apriori_params.fr_approx_Hz;
+            
             if (apriori_params.central_IGM_wavelength_approx_nm > apriori_params.reference1_laser_wvl_nm)
                 freq_0Hz_electrical_approx_Hz = f_laser - abs(fshift_optical);
             else
@@ -688,7 +735,7 @@ else
             fdfr(1) = fPC(2);
         end
         normalized_phase_slope = 0;
-        fprintf("Finding correction parameters for reference 2...\n")
+        fprintf("Finding correction parameters in the MIR for reference 2...\n")
 
         % Offset if there is a lot of fiber length between the
         % references and the IGMs.
@@ -808,22 +855,22 @@ else
 
         % We have two possibilities left, we try both possibilities and take
         % the one with the minimum variance on the locs positions
-        [template1, templateFull1, phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1, ~] = Find_correction_parameters(IGMsProj(:,1), ...
+        [template1, templateFull1, phiZPD1, normalized_phase_slope(1), ptsPerIGM_sub1, true_locs1, ~] = Find_correction_parameters(IGMsProj(:,1), ...
             ptsPerIGM, 0, apriori_params.half_width_template);
 
         varPhi(1) = var(detrend(phiZPD1(2:end)));
         varLocs(1) = var(diff(true_locs1)-mean(diff(true_locs1)));
-        [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2, ~] = Find_correction_parameters(IGMsProj(:,2), ...
+        [template2, templateFull2, phiZPD2, normalized_phase_slope(2), ptsPerIGM_sub2, true_locs2, ~] = Find_correction_parameters(IGMsProj(:,2), ...
             ptsPerIGM, 0, apriori_params.half_width_template);
         varPhi(2) = var(detrend(phiZPD2(2:end)));
         varLocs(2) = var(diff(true_locs2)-mean(diff(true_locs2)));
 
-        [template3, templateFull3, phiZPD3, normalized_phase_slope3, ptsPerIGM_sub3, true_locs3, ~] = Find_correction_parameters(IGMsProj(:,3), ...
+        [template3, templateFull3, phiZPD3, normalized_phase_slope(3), ptsPerIGM_sub3, true_locs3, ~] = Find_correction_parameters(IGMsProj(:,3), ...
             ptsPerIGM, 0, apriori_params.half_width_template);
         varPhi(3) = var(detrend(phiZPD3(2:end)));
         varLocs(3) = var(diff(true_locs3)-mean(diff(true_locs3)));
 
-        [template4, templateFull4, phiZPD4, normalized_phase_slope4, ptsPerIGM_sub4, true_locs4, ~] = Find_correction_parameters(IGMsProj(:,4), ...
+        [template4, templateFull4, phiZPD4, normalized_phase_slope(4), ptsPerIGM_sub4, true_locs4, ~] = Find_correction_parameters(IGMsProj(:,4), ...
             ptsPerIGM, 0, apriori_params.half_width_template);
         varPhi(4) = var(detrend(phiZPD4(2:end)));
         varLocs(4) = var(diff(true_locs4)-mean(diff(true_locs4)));
@@ -832,10 +879,19 @@ else
         [~, idxPhi] = min(varPhi);
         [~, idxLocs] = min(varLocs);
 
-        if (idxPhi == idxLocs)
+        % if (idxPhi == idxLocs)
+        %     x = idxPhi;
+        % else
+        %     error("Could not find proper correction parameters that minized the phase and dfr noise\n");
+        % end
+         if (idxPhi == idxLocs)
+            x = idxPhi;
+        elseif (abs(normalized_phase_slope(idxPhi)) < abs(normalized_phase_slope(idxLocs)))
+            fprintf('The minimal variance on xcorr positions does not match the minimal variance on xcorr phase... \n Verify correction parameters\n')
             x = idxPhi;
         else
-            error("Could not find proper correction parameters that minized the phase and dfr noise\n");
+            fprintf('The minimal variance on xcorr positions does not match the minimal variance on xcorr phase... \n Verify correction parameters\n')
+            x = idxLocs;
         end
         % To DO
         if (apriori_params.do_fast_resampling ==0)
@@ -876,12 +932,12 @@ else
 
         else  %   % If we are adding fast resampling with phase projection
             if x == 1
-                
+
                 dfr_unwrap_factor = dfr_unwrap_factor(1);
                 projection_factor = projection_factor(1);
                 phidfr = phidfr(:,1);
             elseif x == 2
-              
+
                 dfr_unwrap_factor = dfr_unwrap_factor(2);
                 projection_factor = projection_factor(2);
                 phidfr = phidfr(:,2);
@@ -916,10 +972,10 @@ else
 
         dfr_unwrap_factor = dfr_unwrap_factor*abs(normalized_slopes_dfr{x}(1));
         if x <= 2
-         dfr_case = idx_sort1(x);
-        else 
-          x = x-2;
-          dfr_case = idx_sort2(x);
+            dfr_case = idx_sort1(x);
+        else
+            x = x-2;
+            dfr_case = idx_sort2(x);
         end
 
         switch dfr_case

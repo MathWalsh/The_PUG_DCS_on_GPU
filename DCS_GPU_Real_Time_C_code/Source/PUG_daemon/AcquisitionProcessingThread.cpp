@@ -174,6 +174,7 @@ void ProcessingFromDiskThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_
 		handler.CreatecuSolverHandle();
 
 		handler.AllocateGPUBuffers();
+		//handler.AllocateGPUMultiBuffers();
 
 		handler.ReadandAllocateFilterCoefficients();
 
@@ -223,6 +224,10 @@ void ProcessingFromDiskThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_
 
 				if (u32LoopCount > 1) {
 					handler.ProcessInGPU(u32LoopCount - 2);				// This is where GPU processing occurs on work buffer. -2 because it is easier to understand
+					//handler.SelfCorrectionMultiBufferInGPU(u32LoopCount - 2);				// This is where GPU processing occurs on work buffer. -2 because it is easier to understand
+					//handler.FilterMultiBufferInGPU(u32LoopCount - 2);				// This is where GPU processing occurs on work buffer. -2 because it is easier to understand
+					//handler.FastCorrectionsMultiBufferInGPU(u32LoopCount - 2);				// This is where GPU processing occurs on work buffer. -2 because it is easier to understand
+					//handler.XcorrMultiBufferInGPU(u32LoopCount - 2);				// This is where GPU processing occurs on work buffer. -2 because it is easier to understand
 				
 				}
 				handler.copyDataToGPU_async(u32LoopCount); // Seems like the memcpy to gpu is not really async..., we have to launch the process first

@@ -111,7 +111,7 @@ if numel(files) < 20
 idxSkip =1;
 else
   idxSkip =20;
-  
+
 end
 
 

@@ -22,6 +22,576 @@ bool ThreadHandler::isAcqComplete()
 	return acquisitionCompleteWithSuccess;
 }
 
+//void ThreadHandler::FilterInGPU(int32_t u32LoopCount)
+//{
+//	char errorString[255]; // Buffer for the error message
+//
+//	cudaStatus = cudaGetLastError(); // Should catch intra-kernel errors
+//	if (cudaStatus != cudaSuccess)
+//	{
+//		snprintf(errorString, sizeof(errorString), "GPU error : %s\n", cudaGetErrorString(cudaStatus));
+//		ErrorHandler(0, errorString, ERROR_);
+//	}
+//
+//	// Reset parameters for first part of correction
+//	// Use correct data buffer for convolution depending on the u32LoopCount
+//	raw_data_GPU_ptr = (u32LoopCount % 2 == 0) ? raw_data_GPU1_ptr : raw_data_GPU2_ptr;
+//
+//	// Use correct convolution buffers depending on the u32LoopCount
+//	filter_buffer_in_ptr = (u32LoopCount % 2 == 0) ? filter_buffer1_ptr : filter_buffer2_ptr;
+//	filter_buffer_out_ptr = (u32LoopCount % 2 == 0) ? filter_buffer2_ptr : filter_buffer1_ptr;
+//
+//	DcsHStatus.segment_size_ptr[0] = segment_size_per_channel; // We reset segment_size_ptr to  segment_size_per_channel
+//	GpuCfg.i32GpuBlocks128 = (DcsHStatus.segment_size_ptr[0] + GpuCfg.i32GpuThreads / 2 - 1) / (GpuCfg.i32GpuThreads / 2); // Set the number of blocks in GPU kernels depending on segment size
+//	GpuCfg.i32GpuBlocks256 = (DcsHStatus.segment_size_ptr[0] + GpuCfg.i32GpuThreads - 1) / GpuCfg.i32GpuThreads;
+//
+//	if (DcsCfg.nb_coefficients_filters == 32) {
+//		// Filter the channels with a 32 taps fir filters
+//		cudaStatus = fir_filter_32_coefficients_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_coefficients_CPU_ptr,
+//			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+//
+//		if (cudaStatus != cudaSuccess) {
+//			snprintf(errorString, sizeof(errorString), "fir_filter_32_coefficients_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+//			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
+//		}
+//	}
+//	else if (DcsCfg.nb_coefficients_filters == 64) {
+//		// Filter the channels with a 64 taps fir filters
+//		cudaStatus = fir_filter_64_coefficients_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_coefficients_CPU_ptr,
+//			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+//
+//		if (cudaStatus != cudaSuccess) {
+//			snprintf(errorString, sizeof(errorString), "fir_filter_64_coefficients_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+//			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
+//		}
+//	}
+//	else {
+//		// Filter the channels with a 96 taps fir filters
+//		cudaStatus = fir_filter_96_coefficients_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_coefficients_CPU_ptr,
+//			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+//
+//		if (cudaStatus != cudaSuccess) {
+//			snprintf(errorString, sizeof(errorString), "fir_filter_96_coefficients_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+//			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
+//		}
+//	}
+//
+//}
+
+void ThreadHandler::FilterMultiBufferInGPU(int32_t u32LoopCount)
+{
+	char errorString[255]; // Buffer for the error message
+
+	cudaStatus = cudaGetLastError(); // Should catch intra-kernel errors
+	if (cudaStatus != cudaSuccess)
+	{
+		snprintf(errorString, sizeof(errorString), "GPU error : %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(0, errorString, ERROR_);
+	}
+	// Reset parameters for first part of correction
+	// Use correct data buffer for convolution depending on the u32LoopCount
+	raw_data_GPU_ptr = (u32LoopCount % 2 == 0) ? raw_data_GPU1_ptr : raw_data_GPU2_ptr;
+
+	// Use correct convolution buffers depending on the u32LoopCount
+	filter_buffer_in_ptr = (u32LoopCount % 2 == 0) ? filter_buffer1_ptr : filter_buffer2_ptr;
+	filter_buffer_out_ptr = (u32LoopCount % 2 == 0) ? filter_buffer2_ptr : filter_buffer1_ptr;
+
+	// Stitching buffers 
+	filter_buffer_batches_in_ptr = (batchCounter % 2 == 0) ? filter_buffer_batches1_ptr : filter_buffer_batches2_ptr;
+	filter_buffer_batches_out_ptr = (batchCounter % 2 == 0) ? filter_buffer_batches2_ptr : filter_buffer_batches1_ptr;
+
+	DcsHStatus.segment_size_ptr[0] = segment_size_per_channel; // We reset segment_size_ptr to  segment_size_per_channel
+	GpuCfg.i32GpuBlocks128 = (DcsHStatus.segment_size_ptr[0] + GpuCfg.i32GpuThreads / 2 - 1) / (GpuCfg.i32GpuThreads / 2); // Set the number of blocks in GPU kernels depending on segment size
+	GpuCfg.i32GpuBlocks256 = (DcsHStatus.segment_size_ptr[0] + GpuCfg.i32GpuThreads - 1) / GpuCfg.i32GpuThreads;
+
+	if (DcsCfg.nb_coefficients_filters == 32) {
+		// Filter the channels with a 32 taps fir filters
+		cudaStatus = fir_filter_32_coefficients_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_coefficients_CPU_ptr,
+			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "fir_filter_32_coefficients_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
+		}
+	}
+	else if (DcsCfg.nb_coefficients_filters == 64) {
+		// Filter the channels with a 64 taps fir filters
+		cudaStatus = fir_filter_64_coefficients_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_coefficients_CPU_ptr,
+			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "fir_filter_64_coefficients_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
+		}
+	}
+	else {
+
+		// Filter the channels with a 96 taps fir filters
+		cudaStatus = fir_filter_96_coefficients_multi_buffer_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_buffer_batches_out_ptr, filter_buffer_batches_in_ptr, filter_coefficients_CPU_ptr,
+			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "fir_filter_96_coefficients_multi_buffer_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
+		}
+
+		//if (u32LoopCount % DcsCfg.nb_buffers_per_batch == DcsCfg.nb_buffers_per_batch - 1) {
+		//	// Increment the batch counter at the end of the batch
+		//	//batchCounter++;
+		//	DcsHStatus.NptsSave = DcsCfg.nb_signals * (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching);
+		//	DcsHStatus.SaveMeanIGM = true;
+		//	DcsHStatus.PlotMeanIGM = true;
+		//	if (DcsCfg.save_to_float == 1) {
+
+		//		if (u32LoopCount + 1 % 2 == 0) { // for even count (0,2,4...)
+		//			cudaMemcpyAsync(IGMsOutFloat1, filtered_signals_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
+		//		}
+		//		else { // for odd count (1,3,5,...)
+		//			cudaMemcpyAsync(IGMsOutFloat2, filtered_signals_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
+
+		//		}
+		//	}
+		//}
+
+	}
+
+}
+
+
+void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
+{
+	if (u32LoopCount % (DcsCfg.nb_buffers_per_batch) == DcsCfg.nb_buffers_per_batch - 1 && u32LoopCount > 0) {
+
+	char errorString[255]; // Buffer for the error message
+
+	cudaStatus = cudaGetLastError(); // Should catch intra-kernel errors
+	if (cudaStatus != cudaSuccess)
+	{
+		snprintf(errorString, sizeof(errorString), "GPU error : %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(0, errorString, ERROR_);
+	}
+
+	cudaMemcpy(DcsHStatus.previousptsPerIGM_ptr, DcsDStatus.ptsPerIGM_sub_ptr, sizeof(double), cudaMemcpyDeviceToHost);
+
+	if (DcsHStatus.previousptsPerIGM_ptr[0] < 0) { // Should we stop the program for this?
+		ErrorHandler(0, "Invalid number of sub points per IGMs calculated", ERROR_);
+	}
+
+	// This is to keep track of the idx of first ZPD of next batch
+	cudaMemcpy(DcsHStatus.idxStartFirstZPD_ptr + 1, DcsDStatus.idxStartFirstZPDNextSegment_ptr, sizeof(double), cudaMemcpyDeviceToHost);
+
+
+
+	// Use correct reference buffers depending on the batchCounter
+	/*ref1_offset_buffer_in_ptr = (batchCounter % 2 == 0) ? ref1_offset_buffer1_ptr : ref1_offset_buffer2_ptr;
+	ref1_offset_buffer_out_ptr = (batchCounter % 2 == 0) ? ref1_offset_buffer2_ptr : ref1_offset_buffer1_ptr;
+
+	ref2_offset_buffer_in_ptr = (batchCounter % 2 == 0) ? ref2_offset_buffer1_ptr : ref2_offset_buffer2_ptr;
+	ref2_offset_buffer_out_ptr = (batchCounter % 2 == 0) ? ref2_offset_buffer2_ptr : ref2_offset_buffer1_ptr;*/
+
+	DcsHStatus.segment_size_ptr[0] = segment_size_per_channel * DcsCfg.nb_buffers_per_batch + DcsCfg.offset_stitching;
+
+	// If we found the first IGM with good signal
+	if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.max_xcorr_first_IGM_ptr[0] > DcsCfg.xcorr_threshold_low) {
+		DcsHStatus.FirstIGMFound = true;
+		DcsHStatus.max_xcorr_first_IGM_ptr[0] = 0;
+		//DcsHStatus.previousptsPerIGM_ptr[0] = DcsCfg.ptsPerIGM_sub; // We reset the dfr to the one computed in matlab. Temporary fix, we should calculate it with 3-4 IGMs in find_first_IGMs_ZPD_GPU, or keep track of it with the references
+		DcsHStatus.previousptsPerIGM_ptr[0] = DcsHStatus.ptsPerIGM_first_IGMs_ptr[0]; // We reset the dfr to the one computed in find_first_IGMs
+	}
+
+	if (batchCounter == 0) {
+		u32StartTimeDisplaySignals = GetTickCount64();
+		LogStats(fileHandle_log_DCS_Stats, fileCount, batchCounter, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
+			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
+			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], 0,
+			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor));
+
+	}
+	if (batchCounter > 1) {
+		float delay = round(static_cast<float>(DcsCfg.references_offset_pts) * speed_of_light / static_cast<float>(DcsCfg.sampling_rate_Hz));
+		LogStats(fileHandle_log_DCS_Stats, fileCount, batchCounter - 1, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
+			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
+			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], static_cast<int>(delay),
+			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor));
+	}
+
+
+	if (DcsHStatus.FindFirstIGM[0] && DcsHStatus.FirstIGMFound) { // This is because we did not do the self-correction for the first batch
+
+		DcsHStatus.FindFirstIGM[0] = false;
+		DcsHStatus.idxFirstZPD = DcsHStatus.idxStartFirstZPD_ptr[0] + (DcsCfg.nb_pts_template - 1) / 2 + DcsCfg.offset_stitching;
+
+		// Number of IGMs to find in find_IGMs_ZPD_GPU
+		DcsHStatus.NIGMs_ptr[0] = static_cast<int>(std::round((DcsHStatus.segment_size_ptr[0] - (DcsHStatus.idxFirstZPD - DcsHStatus.previousptsPerIGM_ptr[0] / 2)) / DcsHStatus.previousptsPerIGM_ptr[0]));
+		if (DcsHStatus.NIGMs_ptr[0] < 0) {
+			ErrorHandler(0, "Invalid number of IGMs calculated", ERROR_);
+		}
+		// We calculate the position of the last point of the last ZPD, we use the subpoint number of points per IGMs to be more precise
+		DcsHStatus.LastIdxLastIGM = static_cast<int>(std::round(DcsHStatus.idxFirstZPD + (DcsHStatus.NIGMs_ptr[0] - 0.5) * DcsHStatus.previousptsPerIGM_ptr[0])) + DcsCfg.nb_pts_extra;
+
+		// We check if the last IGM is complete
+		if (DcsHStatus.LastIdxLastIGM >= DcsHStatus.segment_size_ptr[0]) { // The last ZPD is incomplete, so we need to crop it.
+
+			DcsHStatus.NIGMs_ptr[0] -= 1;
+			// Calculate the index of the second to last IGM
+			//DcsHStatus.LastIdxLastIGM = static_cast<int>(std::round(DcsHStatus.idxFirstZPD + (DcsHStatus.NIGMs_ptr[0] - 0.5) * DcsHStatus.previousptsPerIGM_ptr[0])) + DcsCfg.nb_pts_extra;
+
+		}
+
+		//if (DcsHStatus.LastIdxLastIGM % 2 == 1) { // We want even number for decimation
+		//	DcsHStatus.LastIdxLastIGM -= 1;
+		//}
+
+		DcsHStatus.segment_offset_ptr[0] = static_cast<int>(DcsCfg.offset_stitching - DcsHStatus.segment_size_ptr[0] +
+			(DcsHStatus.idxFirstZPD + (DcsHStatus.NIGMs_ptr[0] - 0.5) * DcsHStatus.previousptsPerIGM_ptr[0]) - DcsCfg.nb_pts_extra);
+
+		DcsHStatus.idxStartFirstZPD_ptr[0] = DcsHStatus.previousptsPerIGM_ptr[0]/2 - (DcsCfg.nb_pts_template - 1) / 2 + DcsCfg.nb_pts_extra;
+		if (DcsHStatus.segment_offset_ptr[0] < 0) { // Should never happen
+			DcsHStatus.segment_offset_ptr[0] = 0;
+		}
+		else if (DcsHStatus.segment_offset_ptr[0] % 2 == 1) { // We want even number for decimation 
+			DcsHStatus.segment_offset_ptr[0] += 1;
+			DcsHStatus.idxStartFirstZPD_ptr[0] += 1;
+		}
+
+		// Number of IGMs to find in find_IGMs_ZPD_GPU
+		DcsHStatus.NIGMs_ptr[0] = static_cast<int>(std::round((DcsHStatus.segment_size_ptr[0] - (DcsHStatus.segment_offset_ptr[0])) / DcsHStatus.previousptsPerIGM_ptr[0]));
+		if (DcsHStatus.NIGMs_ptr[0] < 0) {
+			ErrorHandler(0, "Invalid number of IGMs calculated", ERROR_);
+		}
+		// We calculate the position of the last point of the last ZPD, we use the subpoint number of points per IGMs to be more precise
+		DcsHStatus.LastIdxLastIGM = static_cast<int>(std::round(DcsHStatus.segment_offset_ptr[0] + DcsCfg.nb_pts_extra + DcsHStatus.NIGMs_ptr[0] * DcsHStatus.previousptsPerIGM_ptr[0])) + DcsCfg.nb_pts_extra;
+
+		// We check if the last IGM is complete
+		if (DcsHStatus.LastIdxLastIGM >= DcsHStatus.segment_size_ptr[0]) { // The last ZPD is incomplete, so we need to crop it.
+
+			DcsHStatus.NIGMs_ptr[0] -= 1;
+			// Calculate the index of the second to last IGM
+			DcsHStatus.LastIdxLastIGM = static_cast<int>(std::round(DcsHStatus.segment_offset_ptr[0] + DcsCfg.nb_pts_extra + DcsHStatus.NIGMs_ptr[0] * DcsHStatus.previousptsPerIGM_ptr[0])) + DcsCfg.nb_pts_extra;
+
+		}
+
+		if (DcsHStatus.LastIdxLastIGM % 2 == 1) { // We want even number for decimation
+			DcsHStatus.LastIdxLastIGM -= 1;
+		}
+
+	}
+	else if (DcsHStatus.FindFirstIGM[0] == false && DcsHStatus.FirstIGMFound == false) {
+
+		// We calculated the start idx of the ZPD for this batch in the previous batch, now we assign it to the first index
+		DcsHStatus.idxFirstZPD = DcsCfg.offset_stitching - DcsHStatus.segment_size_ptr[0] + DcsHStatus.idxStartFirstZPD_ptr[1] + DcsHStatus.segment_offset_ptr[0] + DcsHStatus.previousptsPerIGM_ptr[0];
+		//DcsHStatus.idxFirstZPD =  DcsHStatus.idxStartFirstZPD_ptr[1] + DcsHStatus.segment_offset_ptr[0] - DcsHStatus.segment_size_ptr[0] + DcsHStatus.previousptsPerIGM_ptr[0];
+		
+		// Number of IGMs to find in find_IGMs_ZPD_GPU
+		DcsHStatus.NIGMs_ptr[0] = static_cast<int>(std::round((DcsHStatus.segment_size_ptr[0] - (DcsHStatus.idxFirstZPD - DcsHStatus.previousptsPerIGM_ptr[0] / 2)) / DcsHStatus.previousptsPerIGM_ptr[0]));
+		if (DcsHStatus.NIGMs_ptr[0] < 0) {
+			ErrorHandler(0, "Invalid number of IGMs calculated", ERROR_);
+		}
+		// We calculate the position of the last point of the last ZPD, we use the subpoint number of points per IGMs to be more precise
+		DcsHStatus.LastIdxLastIGM = static_cast<int>(std::round(DcsHStatus.idxFirstZPD + (DcsHStatus.NIGMs_ptr[0] - 0.5) * DcsHStatus.previousptsPerIGM_ptr[0])) + DcsCfg.nb_pts_extra;
+
+		// We check if the last IGM is complete
+		if (DcsHStatus.LastIdxLastIGM >= DcsHStatus.segment_size_ptr[0]) { // The last ZPD is incomplete, so we need to crop it.
+
+			DcsHStatus.NIGMs_ptr[0] -= 1;
+			// Calculate the index of the second to last IGM
+			DcsHStatus.LastIdxLastIGM = static_cast<int>(std::round(DcsHStatus.idxFirstZPD + (DcsHStatus.NIGMs_ptr[0] - 0.5) * DcsHStatus.previousptsPerIGM_ptr[0])) + DcsCfg.nb_pts_extra;
+
+		}
+
+		if (DcsHStatus.LastIdxLastIGM % 2 == 1) { // We want even number for decimation
+			DcsHStatus.LastIdxLastIGM -= 1;
+		}
+
+		/*DcsHStatus.segment_offset_ptr[0] = static_cast<int>(DcsCfg.offset_stitching - DcsHStatus.segment_size_ptr[0] +
+			(DcsHStatus.idxFirstZPD + (DcsHStatus.NIGMs_ptr[0] - 0.5) * DcsHStatus.previousptsPerIGM_ptr[0]) - DcsCfg.nb_pts_extra);*/
+		DcsHStatus.segment_offset_ptr[0] = static_cast<int>(DcsHStatus.idxFirstZPD - DcsHStatus.previousptsPerIGM_ptr[0] / 2) - DcsCfg.nb_pts_extra;
+
+		DcsHStatus.idxStartFirstZPD_ptr[0] = DcsHStatus.previousptsPerIGM_ptr[0]/2 - (DcsCfg.nb_pts_template - 1) / 2 + DcsCfg.nb_pts_extra;
+		if (DcsHStatus.segment_offset_ptr[0] < 0) { // Should never happen
+			DcsHStatus.segment_offset_ptr[0] = 0;
+		}
+		else if (DcsHStatus.segment_offset_ptr[0] % 2 == 1) { // We want even number for decimation 
+			DcsHStatus.segment_offset_ptr[0] += 1;
+			DcsHStatus.idxStartFirstZPD_ptr[0] += 1;
+		}
+
+	}
+
+	if (DcsHStatus.FindFirstIGM[0] == false) // For buffers where we do the self-correction
+	{
+
+		DcsHStatus.FirstIGMFound = false;
+		// For find_IGMs_ZPD_GPU, we have the current batch + the points from the buffer of the previous batch
+		DcsHStatus.segment_size_ptr[1] = (DcsHStatus.LastIdxLastIGM - DcsHStatus.segment_offset_ptr[0]);
+		// Number of IGMs to find in find_IGMs_ZPD_GPU
+		DcsHStatus.NIGMs_ptr[0] = static_cast<int>(std::round(DcsHStatus.segment_size_ptr[1] / DcsHStatus.previousptsPerIGM_ptr[0]));
+
+		DcsHStatus.segment_offset_ptr[1] = DcsHStatus.segment_offset_ptr[0] - DcsCfg.references_offset_pts; // We offset the phase references pointer
+		DcsHStatus.segment_offset_ptr[2] = DcsHStatus.segment_offset_ptr[0] - DcsCfg.references_offset_pts; // We offset the phase references pointer
+
+
+		// Adjust the number of blocks for xcorr in find_IGMs_ZPD_GPU, we will calculate DcsCfg.max_delay_xcorr per IGMs
+		DcsHStatus.blocksPerDelay = (DcsCfg.nb_pts_template + 2 * 256 - 1) / (2 * 256); // We put 256 because this is the number of threads per block in find_IGMs_ZPD_GPU
+		DcsHStatus.totalDelays = DcsCfg.max_delay_xcorr * DcsHStatus.NIGMs_ptr[0];
+		DcsHStatus.totalBlocks = DcsHStatus.blocksPerDelay * DcsHStatus.totalDelays;
+
+	}
+	else {
+		DcsHStatus.segment_size_ptr[1] = DcsHStatus.segment_size_ptr[0] - DcsCfg.offset_stitching;
+		DcsHStatus.segment_offset_ptr[0] = DcsCfg.offset_stitching;		
+		DcsHStatus.segment_offset_ptr[1] = DcsCfg.offset_stitching - DcsCfg.references_offset_pts; // We offset the phase references 1 pointer
+		DcsHStatus.segment_offset_ptr[2] = DcsCfg.offset_stitching - DcsCfg.references_offset_pts; // We offset the phase references 2 pointer (same for now)
+	}
+
+	GpuCfg.i32GpuBlocks128 = (DcsHStatus.segment_size_ptr[1] + GpuCfg.i32GpuThreads / 2 - 1) / (GpuCfg.i32GpuThreads / 2); // Set the number of blocks in GPU kernels depending on segment size
+	GpuCfg.i32GpuBlocks256 = (DcsHStatus.segment_size_ptr[1] + GpuCfg.i32GpuThreads - 1) / GpuCfg.i32GpuThreads;
+
+
+	if (DcsCfg.nb_phase_references == 0) {
+
+		// We don't do the fast correction, we should still remove a slope for the self-correction (TO DO)
+		IGMs_corrected_ptr = filtered_signals_ptr + DcsHStatus.segment_offset_ptr[0];
+	}
+	else if (DcsCfg.nb_phase_references == 1) {
+
+		// If we have at least 1 reference we do the fast phase correction
+		cudaStatus = fast_phase_correction_multi_buffer_GPU(IGMs_phase_corrected_ptr, optical_ref1_ptr, filtered_signals_ptr + DcsHStatus.segment_offset_ptr[0],
+			filtered_signals_ptr + 1 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1], filtered_signals_ptr + 2 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1],
+			DcsHStatus.segment_size_ptr[1], cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "fast_phase_correction_multi_buffer_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+			ErrorHandler(0, errorString, ERROR_);
+		}
+
+		IGMs_corrected_ptr = IGMs_phase_corrected_ptr;
+
+	}
+	else if (DcsCfg.nb_phase_references == 2) {
+
+		if (DcsCfg.do_phase_projection == 0) {
+
+			// Fast phase correction with one of the references
+			cudaStatus = fast_phase_correction_multi_buffer_GPU(IGMs_phase_corrected_ptr, optical_ref1_ptr, filtered_signals_ptr + DcsHStatus.segment_offset_ptr[0],
+				filtered_signals_ptr + 1 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1], filtered_signals_ptr + 2 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1],
+				DcsHStatus.segment_size_ptr[1], cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "fast_phase_correction_multi_buffer_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+		}
+		else if (DcsCfg.do_phase_projection == 1 || DcsCfg.spectro_mode == 1) {
+
+			//Create the dfr reference 
+			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
+			cudaStatus = compute_dfr_wrapped_angle_multi_buffer_GPU(optical_ref_dfr_angle_ptr, optical_ref1_angle_ptr, optical_ref1_ptr, filtered_signals_ptr + 1 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1],
+				filtered_signals_ptr + 2 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1], filtered_signals_ptr + 3 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[2],
+				filtered_signals_ptr + 4 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[2], DcsHStatus.segment_size_ptr[1], cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "compute_dfr_wrapped_angle_multi_buffer_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+
+			DcsHStatus.Unwrapdfr = true;
+			// Unwrap the phase of the dfr signal
+			cudaStatus = unwrap_phase_GPU(unwrapped_dfr_phase_ptr, optical_ref_dfr_angle_ptr, two_pi_count_ptr, blocks_edges_cumsum_ptr, increment_blocks_edges_ptr, DcsHStatus.segment_size_ptr[1],
+				cuda_stream, cudaSuccess, DcsCfg, GpuCfg, &DcsHStatus, DcsDStatus); // (fast unwrap with 128 threads on 4090 GPU)
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "unwrap_phase_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+			// We do the fast phase projection (fast phase correction at a specific frequency)
+			cudaStatus = fast_phase_projected_correction_multi_buffer_GPU(IGMs_phase_corrected_ptr, filtered_signals_ptr + DcsHStatus.segment_offset_ptr[0], optical_ref1_angle_ptr, unwrapped_dfr_phase_ptr,
+				DcsHStatus.segment_size_ptr[1], cuda_stream, cudaSuccess, DcsCfg, GpuCfg, DcsDStatus);
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "fast_phase_projected_correction_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+		}
+
+		if (DcsCfg.do_phase_projection == 0 && DcsCfg.do_fast_resampling == 1) {
+			//Create the dfr reference 
+			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
+			cudaStatus = compute_dfr_wrapped_angle_multi_buffer_GPU(optical_ref_dfr_angle_ptr, optical_ref1_angle_ptr, optical_ref1_ptr, filtered_signals_ptr + +1 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1],
+				filtered_signals_ptr + 2 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1], filtered_signals_ptr + 3 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[2],
+				filtered_signals_ptr + 4 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[2], DcsHStatus.segment_size_ptr[1], cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "compute_dfr_wrapped_angle_multi_buffer_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+			DcsHStatus.Unwrapdfr = true;
+			// Unwrap the phase of the dfr signal
+			cudaStatus = unwrap_phase_GPU(unwrapped_dfr_phase_ptr, optical_ref_dfr_angle_ptr, two_pi_count_ptr, blocks_edges_cumsum_ptr, increment_blocks_edges_ptr, segment_size_per_channel,
+				cuda_stream, cudaSuccess, DcsCfg, GpuCfg, &DcsHStatus, DcsDStatus); // (fast unwrap with 128 threads on 4090 GPU)
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "unwrap_phase_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+
+			// We should add a filter for the phase of the signal (TO DO)
+
+			// Create linspace for resampling with the slope parameters estimated in the unwrap
+			int index_linspace = 0;
+			cudaStatus = linspace_GPU(uniform_grid_ptr, DcsHStatus.segment_size_ptr[1], index_linspace, cuda_stream, cudaSuccess, DcsCfg, GpuCfg, DcsDStatus); // index_linspace = 0;
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "linspace_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+			// Do the resampling with two reference with a linear interpolation (try to remove the n_interval parameter, TO DO)
+			int index_linear_interp = 0;
+			linear_interpolation_GPU(IGMs_corrected_ptr, uniform_grid_ptr, IGMs_phase_corrected_ptr, unwrapped_dfr_phase_ptr, idx_nonuniform_to_uniform_grid_ptr,
+				DcsHStatus.segment_size_ptr[1], DcsHStatus.segment_size_ptr[1], index_linear_interp, GpuCfg.i32GpuThreads / 2, GpuCfg.i32GpuBlocks128, cuda_stream, cudaSuccess, DcsCfg); // We assume  GpuCfg.i32GpuThreads = 256
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "linear_interpolation_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+		}
+		else if (DcsCfg.do_phase_projection == 1 && DcsCfg.do_fast_resampling == 1) {
+
+			// Create linspace for resampling with the slope parameters estimated in the unwrap
+			int index_linspace = 0;
+			cudaStatus = linspace_GPU(uniform_grid_ptr, DcsHStatus.segment_size_ptr[1] / DcsCfg.decimation_factor, index_linspace, cuda_stream, cudaSuccess, DcsCfg, GpuCfg, DcsDStatus); // index_linspace = 0;
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "linspace_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+			// Do the resampling with two reference with a linear interpolation (try to remove the n_interval parameter, TO DO)
+			int index_linear_interp = 0;
+			linear_interpolation_GPU(IGMs_corrected_ptr, uniform_grid_ptr, IGMs_phase_corrected_ptr, unwrapped_dfr_phase_ptr, idx_nonuniform_to_uniform_grid_ptr,
+				DcsHStatus.segment_size_ptr[1], DcsHStatus.segment_size_ptr[1], index_linear_interp, GpuCfg.i32GpuThreads / 2, GpuCfg.i32GpuBlocks128, cuda_stream, cudaSuccess, DcsCfg); // We assume  GpuCfg.i32GpuThreads = 256
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "linear_interpolation_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+		}
+		else {
+			IGMs_corrected_ptr = IGMs_phase_corrected_ptr;
+		}
+	}
+	// We bring the IGM spectrum near 0 Hz for the self-correction (Better for xcorr and resampling)
+	if (DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 0 || DcsCfg.nb_phase_references == 0 || DcsCfg.nb_phase_references == 1) {
+
+		int blocksRotate = (DcsHStatus.segment_size_ptr[1] + 128 - 1) / 128;
+		rotate_IGMs_phase_GPU(IGMs_corrected_ptr, DcsHStatus.IGMs_rotation_angle, DcsCfg.slope_self_correction, DcsHStatus.segment_size_ptr[1], DcsCfg.decimation_factor,
+			blocksRotate, 128, cuda_stream, cudaSuccess);
+		if (cudaStatus != cudaSuccess)
+		{
+			snprintf(errorString, sizeof(errorString), "rotate_IGMs_phase_GPU launch failed: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(0, errorString, ERROR_);
+		}
+		//DcsHStatus.IGMs_rotation_angle = fmod(DcsHStatus.IGMs_rotation_angle - static_cast<double>(DcsHStatus.segment_size_ptr[0]) * DcsCfg.slope_self_correction, 2 * M_PI);
+		DcsHStatus.IGMs_rotation_angle = 0.0f;
+
+	}
+
+	IGMs_selfcorrection_in_ptr = IGMs_corrected_ptr;
+	cudaStatus = cudaGetLastError(); // Should catch intra-kernel errors
+	if (cudaStatus != cudaSuccess)
+	{
+		snprintf(errorString, sizeof(errorString), "cudaMemcpyAsync error IGMsSelfCorrection: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(0, errorString, ERROR_);
+	}
+
+	}
+}
+
+void ThreadHandler::XcorrMultiBufferInGPU(int32_t u32LoopCount)
+{
+	char errorString[255]; // Buffer for the error message
+	if (u32LoopCount % (DcsCfg.nb_buffers_per_batch) == DcsCfg.nb_buffers_per_batch - 1 && u32LoopCount > 0) {
+
+
+		if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.FirstIGMFound == false) {
+
+			// TO DO
+			// For the first segment, we don't know where the first ZPD is, we do a xcorr over a wider range to find it
+			// We also call this function when we have long dropouts period and we need to refind the first IGM
+			cudaStatus = find_first_IGMs_ZPD_multi_buffer_GPU(IGMs_selfcorrection_in_ptr, IGM_template_ptr, xcorr_IGMs_blocks_ptr, index_mid_segments_ptr,
+				cuda_stream, cudaSuccess, DcsCfg, GpuCfg, &DcsHStatus, DcsDStatus);
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "find_first_IGMs_ZPD_multi_buffer_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+			if (batchCounter > 0) {
+				DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
+			}
+
+		}
+		else {
+
+			// TO DO
+			// We know where the first ZPD is, so we can do a xcorr on all the igms over a small delay range
+			// We find the subpoint position of the ZPDs and their phase with a xcorr
+			cudaStatus = find_IGMs_ZPD_multi_buffer_GPU(IGMs_selfcorrection_in_ptr, IGM_template_ptr, xcorr_IGMs_blocks_ptr, index_mid_segments_ptr, index_max_xcorr_subpoint_ptr,
+				phase_max_xcorr_subpoint_ptr, unwrapped_selfcorrection_phase_ptr, cuda_stream, cudaSuccess, DcsCfg, GpuCfg, &DcsHStatus, DcsDStatus);
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "find_IGMs_ZPD_multi_buffer_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+		}
+		batchCounter++;
+
+	}
+}
+
+void ThreadHandler::SelfCorrectionMultiBufferInGPU(int32_t u32LoopCount)
+{
+	char errorString[255]; // Buffer for the error message
+
+	if (u32LoopCount % (DcsCfg.nb_buffers_per_batch) == DcsCfg.nb_buffers_per_batch - 1 && u32LoopCount > 0) {
+		//if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.FirstIGMFound == false && batchCounter >= 1) {
+		//	// We transfer the results to the CPU for the next buffer
+		//	cudaMemcpy(DcsHStatus.idxStartFirstZPD_ptr, index_mid_segments_ptr, sizeof(double), cudaMemcpyDeviceToHost);
+		//	// We transfer the results to the CPU for the next buffer
+		//	cudaMemcpy(DcsHStatus.max_xcorr_first_IGM_ptr, DcsDStatus.max_val_blocks_ptr, sizeof(float), cudaMemcpyDeviceToHost);
+		//	// We transfer the results to the CPU for the next buffer
+		//	cudaMemcpy(DcsHStatus.ptsPerIGM_first_IGMs_ptr, DcsDStatus.ptsPerIGM_first_IGMs_ptr, sizeof(double), cudaMemcpyDeviceToHost);
+
+		//}
+
+		// If we found the first IGM with good signal
+		if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.max_xcorr_first_IGM_ptr[0] > DcsCfg.xcorr_threshold_low) {
+			DcsHStatus.FirstIGMFound = true;
+			DcsHStatus.max_xcorr_first_IGM_ptr[0] = 0;
+			//DcsHStatus.previousptsPerIGM_ptr[0] = DcsCfg.ptsPerIGM_sub; // We reset the dfr to the one computed in matlab. Temporary fix, we should calculate it with 3-4 IGMs in find_first_IGMs_ZPD_GPU, or keep track of it with the references
+			DcsHStatus.previousptsPerIGM_ptr[0] = DcsHStatus.ptsPerIGM_first_IGMs_ptr[0]; // We reset the dfr to the one computed in find_first_IGMs
+		}
+
+		//if (u32LoopCount > 1 && batchCounter >= 1) {
+		//	// Number of points to remove from this buffer
+		//	cudaMemcpy(DcsHStatus.NotEnoughIGMs, DcsDStatus.NotEnoughIGMs, sizeof(bool), cudaMemcpyDeviceToHost);
+
+		//	if (DcsHStatus.NotEnoughIGMs[0]) {
+		//		DcsHStatus.FindFirstIGM[0] = true;
+		//		DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
+		//	}
+		//	cudaMemcpy(DcsHStatus.UnwrapError_ptr, DcsDStatus.UnwrapError_ptr, sizeof(bool), cudaMemcpyDeviceToHost); // Check if we have an unwrap in self-correction
+
+		//	cudaStatus = cudaGetLastError(); // Should catch intra-kernel errors
+		//	if (cudaStatus != cudaSuccess)
+		//	{
+		//		snprintf(errorString, sizeof(errorString), "GPU error : %s\n", cudaGetErrorString(cudaStatus));
+		//		ErrorHandler(0, errorString, ERROR_);
+		//	}
+		//}
+	}
+}
 
 void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 {
@@ -132,6 +702,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 				cudaMemset(DcsDStatus.max_xcorr_sum_ptr, 0, sizeof(double));
 				//DcsHStatus.NptsSave = DcsCfg.ptsPerIGM / DcsCfg.decimation_factor;
 				DcsHStatus.NptsSave = DcsCfg.ptsPerIGM;
+				//DcsHStatus.NptsSave =segment_size_per_channel;
 				//DcsHStatus.NptsSave = DcsHStatus.segment_size_ptr[2];
 				//DcsHStatus.NptsSave = DcsHStatus.NIGMs_ptr[0] * DcsCfg.ptsPerIGM;
 				//DcsHStatus.NptsSave = DcsHStatus.segment_size_ptr[1];
@@ -196,10 +767,8 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		LogStats(fileHandle_log_DCS_Stats, fileCount, u32LoopCount - 1, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
 			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], static_cast<int>(delay),
-			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor));
+			static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / static_cast<double>(DcsCfg.decimation_factor));
 	}
-
-
 	// Reset parameters for first part of correction
 	// Use correct data buffer for convolution depending on the u32LoopCount
 	raw_data_GPU_ptr = (u32LoopCount % 2 == 0) ? raw_data_GPU1_ptr : raw_data_GPU2_ptr;
@@ -509,7 +1078,6 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 
 
 	}
-
 	else {
 
 		// We know where the first ZPD is, so we can do a xcorr on all the igms over a small delay range
@@ -1472,11 +2040,10 @@ void ThreadHandler::AllocateGPUBuffers()
 
 	cudaStatus = cudaMalloc((void**)&DcsDStatus.NotEnoughIGMs, sizeof(bool)); // We could put the values for all the batches in this if we want
 	if (cudaStatus != cudaSuccess) {
-		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for FindFirstIGM: %s\n", cudaGetErrorString(cudaStatus));
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for NotEnoughIGMs: %s\n", cudaGetErrorString(cudaStatus));
 		ErrorHandler(cudaStatus, errorString, ERROR_);
 	}
 	cudaMemset(DcsDStatus.NotEnoughIGMs, false, sizeof(bool));
-
 
 	// For find_first_IGMs_ZPD_GPU
 	cudaStatus = cudaMalloc((void**)&DcsDStatus.index_max_blocks_ptr, DcsCfg.ptsPerIGM * sizeof(int)); // Should be DcsCfg.ptsPerIGM/256
@@ -1577,7 +2144,7 @@ void ThreadHandler::AllocateGPUBuffers()
 
 	cudaDeviceSynchronize();
 
-    cudaStatus = cudaMalloc((void**)&DcsDStatus.ptsPerIGM_first_IGMs_ptr, 3 * sizeof(double));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.ptsPerIGM_first_IGMs_ptr, 3 * sizeof(double));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
 	if (cudaStatus != cudaSuccess) {
 		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for dfr_first_ptr: %s\n", cudaGetErrorString(cudaStatus));
 		ErrorHandler(cudaStatus, errorString, ERROR_);
@@ -1690,7 +2257,6 @@ void ThreadHandler::AllocateGPUBuffers()
 		cudaMemset(filter_buffer2_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH96 - 1) * sizeof(float));
 
 	}
-
 	cudaStatus = cudaMalloc((void**)&signals_channel_index_ptr, DcsCfg.nb_signals * sizeof(int));
 	if (cudaStatus != cudaSuccess) {
 		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for signals_channel_index_ptr: %s\n", cudaGetErrorString(cudaStatus));
@@ -1941,6 +2507,715 @@ void ThreadHandler::AllocateGPUBuffers()
 
 }
 
+void ThreadHandler::AllocateGPUMultiBuffers()
+{
+
+	char errorString[255]; // Buffer for the error message
+	cudaError_t  cudaStatus = (cudaError_t)0;
+
+
+	// For DcsCgf
+	DcsCfg.offset_stitching = static_cast<int>(static_cast<double>(DcsCfg.ptsPerIGM * DcsCfg.decimation_factor) * 1.5);
+	printf("DcsCfg.offset_stitching: %d", DcsCfg.offset_stitching);
+	DcsCfg.nb_pts_extra = 100;
+	DcsCfg.nb_buffers_per_batch = 4;
+
+
+	// General GPU variables
+	if (DcsCfg.save_to_float == 1) {
+		IGMsOutFloat1 = (cufftComplex*)malloc(2 * DcsCfg.nb_buffers_per_batch * segment_size_per_channel * DcsCfg.nb_channels * sizeof(cufftComplex));
+		if (!IGMsOutFloat1) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for IGMsOutFloat1 buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(IGMsOutFloat1, 0, 2 * DcsCfg.nb_buffers_per_batch * segment_size_per_channel * DcsCfg.nb_channels * sizeof(cufftComplex));
+		}
+		IGMsOutFloat2 = (cufftComplex*)malloc(2 * DcsCfg.nb_buffers_per_batch * segment_size_per_channel * DcsCfg.nb_channels * sizeof(cufftComplex));
+		if (!IGMsOutFloat2) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for IGMsOutFloat2 buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(IGMsOutFloat2, 0, 2 * DcsCfg.nb_buffers_per_batch * segment_size_per_channel * DcsCfg.nb_channels * sizeof(cufftComplex));
+		}
+	}
+	else {
+
+		IGMsOutInt1 = (int16Complex*)malloc(segment_size_per_channel * DcsCfg.nb_channels * sizeof(int16Complex));
+		if (!IGMsOutInt1) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for IGMsOutInt1 buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(IGMsOutInt1, 0, segment_size_per_channel * DcsCfg.nb_channels * sizeof(cufftComplex));
+		}
+		IGMsOutInt2 = (int16Complex*)malloc(segment_size_per_channel * DcsCfg.nb_channels * sizeof(int16Complex));
+		if (!IGMsOutInt2) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for IGMsOutInt2 buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(IGMsOutInt2, 0, segment_size_per_channel * DcsCfg.nb_signals * sizeof(cufftComplex));
+		}
+
+	}
+
+
+	// For DCSHostStatus
+		// General GPU variables
+
+	DcsHStatus.NIGMs_ptr[0] = segment_size_per_channel / DcsCfg.ptsPerIGM; // Approximate number of IGMs per segment
+	DcsHStatus.NIGMs_ptr[1] = 0;
+	DcsHStatus.NIGMs_ptr[2] = 0;
+	DcsHStatus.segment_size_ptr[0] = 0;
+	DcsHStatus.segment_size_ptr[1] = 0;
+	DcsHStatus.segment_size_ptr[2] = 0;
+	DcsHStatus.previousptsPerIGM_ptr[0] = DcsCfg.ptsPerIGM_sub;
+
+	// Unwrapping    
+	DcsHStatus.Unwrapdfr = true; // This is if we want to unwrap something different thant dfr ref (logic not implemented yet)
+	DcsHStatus.EstimateSlope = true;
+
+	// 2 ref resampling
+	DcsHStatus.start_slope_ptr[0] = 0;
+	DcsHStatus.start_slope_ptr[1] = 0;
+	DcsHStatus.end_slope_ptr[0] = 0;
+	DcsHStatus.end_slope_ptr[1] = 0;
+
+	// find_IGMs_ZPD_GPU
+	DcsHStatus.NptsLastIGMBuffer_ptr[0] = 0;
+	DcsHStatus.NptsLastIGMBuffer_ptr[1] = 0;
+	DcsHStatus.idxStartFirstZPD_ptr[0] = 0;
+	DcsHStatus.idxStartFirstZPD_ptr[1] = 0;
+	DcsHStatus.ZPDPhaseMean_ptr[0] = 0;
+	DcsHStatus.max_xcorr_sum_ptr[0] = 0.0f;
+
+	DcsHStatus.ptsPerIGM_first_IGMs_ptr[0] = 0.0f;
+	if (DcsCfg.max_delay_xcorr >= DcsCfg.nb_pts_template) {
+		DcsCfg.max_delay_xcorr = DcsCfg.nb_pts_template - 1;
+	}
+
+	// find_first_IGMs_ZPD_GPU
+	DcsHStatus.blocksPerDelayFirst = (DcsCfg.nb_pts_template + 2 * 256 - 1) / (2 * 256); // We put 256 because this is the number of threads per block in find_IGMs_ZPD_GPU
+	DcsHStatus.totalDelaysFirst = 2 * DcsCfg.max_delay_xcorr; // We need to test this, we might need more
+	if (2 * DcsCfg.max_delay_xcorr > DcsCfg.nb_pts_template) {
+		DcsHStatus.totalDelaysFirst = DcsCfg.nb_pts_template - 1;
+	}
+	DcsHStatus.totalBlocksFirst = DcsHStatus.blocksPerDelayFirst * DcsHStatus.totalDelaysFirst;
+	DcsHStatus.max_xcorr_first_IGM_ptr[0] = 0;
+	DcsHStatus.FindFirstIGM[0] = true;
+
+	// For DCSDeviceStatus
+		// 2 ref resampling
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.start_slope_ptr, 3 * sizeof(double));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for start_slope_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.start_slope_ptr, 0, 3 * sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.end_slope_ptr, 3 * sizeof(double));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for end_slope_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.end_slope_ptr, 0, 3 * sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.last_projected_angle_ptr, 1 * sizeof(double));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for last_projected_angle_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.last_projected_angle_ptr, 0, sizeof(double));
+	// find_IGMs_ZPD_GPU
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.ptsPerIGM_sub_ptr, sizeof(double)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ptsPerIGM_sub_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemcpy(DcsDStatus.ptsPerIGM_sub_ptr, DcsHStatus.previousptsPerIGM_ptr, sizeof(double), cudaMemcpyHostToDevice);
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.idxStartTemplate_ptr, sizeof(int)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for idxStartTemplate_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.idxStartTemplate_ptr, 0, sizeof(int));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.idxStartFirstZPDNextSegment_ptr, sizeof(double)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for idxStartFirstZPDNextSegment_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.idxStartFirstZPDNextSegment_ptr, 0, sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.ZPDPhaseMean_ptr, sizeof(double)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ZPDPhaseMean_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.ZPDPhaseMean_ptr, 0.0f, sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.max_xcorr_sum_ptr, sizeof(double)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for max_xcorr_sum_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.max_xcorr_sum_ptr, 0.0f, sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.MaxXcorr_ptr, 6 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(double));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for MaxXcorr_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.MaxXcorr_ptr, 0.0f, 6 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.NIGMs_ptr, 3 * sizeof(int)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for NIGMs_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.NIGMs_ptr, 0, 3 * sizeof(int));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.idxGoodIGMs_ptr,6 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(int));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for idxGoodIGMs_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.idxGoodIGMs_ptr, 0, 6 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(int));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.idxSaveIGMs_ptr,6 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(int));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for idxSaveIGMs_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.idxSaveIGMs_ptr, 0, 6 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(int));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.NptsLastIGMBuffer_ptr, sizeof(int)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for NptsLastIGMBuffer_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.NptsLastIGMBuffer_ptr, 0, sizeof(int));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.SegmentSizeSelfCorrection_ptr, sizeof(int)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for SegmentSizeSelfCorrection_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.SegmentSizeSelfCorrection_ptr, 0, sizeof(int));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.FindFirstIGM, sizeof(bool)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for FindFirstIGM: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.FindFirstIGM, false, sizeof(bool));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.NotEnoughIGMs, sizeof(bool)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for NotEnoughIGMs: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.NotEnoughIGMs, false, sizeof(bool));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.offset_start_ptr, sizeof(int)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for offset_start_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.offset_start_ptr, 0, sizeof(int));
+
+
+	// For find_first_IGMs_ZPD_GPU
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.index_max_blocks_ptr, DcsCfg.ptsPerIGM * sizeof(int)); // Should be DcsCfg.ptsPerIGM/256
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for index_max_blocks_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.index_max_blocks_ptr, 0, DcsCfg.ptsPerIGM * sizeof(int));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.max_val_blocks_ptr, DcsCfg.ptsPerIGM * sizeof(float)); // Should be DcsCfg.ptsPerIGM/256
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for max_val_blocks_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.max_val_blocks_ptr, 0, DcsCfg.ptsPerIGM * sizeof(float));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.SlopePhaseSub_ptr, sizeof(double)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for SlopePhaseSub_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.SlopePhaseSub_ptr, 0.0f, sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.StartPhaseSub_ptr, sizeof(double)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for StartPhaseSub_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.StartPhaseSub_ptr, 0.0f, sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.UnwrapError_ptr, sizeof(bool)); // We could put the values for all the batches in this if we want
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for UnwrapError_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.UnwrapError_ptr, false, 1);
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.IGM_weights, 6 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(double));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGM_weights: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.IGM_weights, 0, 6 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.xcorr_data_out_GUI_ptr, 40 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(float));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	//cudaStatus = cudaMalloc((void**)&DcsDStatus.xcorr_data_out_GUI_ptr, 86 * 3 * sizeof(float));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGM_weights: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.xcorr_data_out_GUI_ptr, 0, 40 * (segment_size_per_channel / DcsCfg.ptsPerIGM) * sizeof(float));
+	//cudaMemset(DcsDStatus.xcorr_data_out_GUI_ptr, 0, 86 * 3 * sizeof(float));
+
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.maxIGMInterval_selfCorrection_ptr, sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for maxIGMInterval_selfCorrection_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.maxIGMInterval_selfCorrection_ptr, 0, sizeof(int));
+
+	// Variables for cuSOlver to compute spline coefficients in compute_SelfCorrection_GPU	
+	// This is to compute the spline coefficients
+	// We don't know the max size because it can vary based on the number of igms per batch
+	// We will put 10 * NIGMs_ptr to be safe for now
+	// We launch two of these to do f0 spline and dfr spline at the same time
+
+	cudaStatus = cudaMallocAsync(&DcsDStatus.d_h, sizeof(double) * (10 * DcsHStatus.NIGMs_ptr[0] - 1) * (10 * DcsHStatus.NIGMs_ptr[0] - 1), cuda_stream);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for d_h: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMallocAsync(&DcsDStatus.d_D, sizeof(double) * (10 * DcsHStatus.NIGMs_ptr[0] - 1) * (10 * DcsHStatus.NIGMs_ptr[0] - 1), cuda_stream);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for d_D: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMallocAsync(&DcsDStatus.devInfo, sizeof(int), cuda_stream);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for devInfo: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+
+	// Initialize memory to zero asynchronously
+	cudaMemsetAsync(DcsDStatus.d_h, 0, sizeof(double) * (10 * DcsHStatus.NIGMs_ptr[0] - 1) * (10 * DcsHStatus.NIGMs_ptr[0] - 1), cuda_stream);
+	cudaMemsetAsync(DcsDStatus.d_D, 0, sizeof(double) * (10 * DcsHStatus.NIGMs_ptr[0] - 1) * (10 * DcsHStatus.NIGMs_ptr[0] - 1), cuda_stream);
+	// Allocate workspace for cuSOLVER operations
+	cusolverStatus_t status = cusolverDnDpotrf_bufferSize(DcsDStatus.cuSolver_handle, CUBLAS_FILL_MODE_UPPER, 10 * DcsHStatus.NIGMs_ptr[0] - 1, DcsDStatus.d_D, 10 * -1, &DcsDStatus.lwork);
+	if (status != CUSOLVER_STATUS_SUCCESS) {
+		// Handle the error
+		snprintf(errorString, sizeof(errorString), "cusolverDnDpotrf_bufferSize failed with error code: %d\n", status);
+		ErrorHandler((int32_t)status, errorString, ERROR_);
+	}
+
+	cudaStatus = cudaMallocAsync(&DcsDStatus.d_work, sizeof(double) * DcsDStatus.lwork, cuda_stream); // pointer for the  Workspace for computations
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for d_work: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+
+	cudaDeviceSynchronize();
+
+	cudaStatus = cudaMalloc((void**)&DcsDStatus.ptsPerIGM_first_IGMs_ptr, 3 * sizeof(double));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for dfr_first_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(DcsDStatus.ptsPerIGM_first_IGMs_ptr, 0, 3 * sizeof(double));
+
+	// Raw data buffers
+
+	/*cudaStatus = cudaMalloc((void**)&raw_data_GPU_ptr, u32TransferSizeSamples * sizeof(short));
+	cudaMemset(raw_data_GPU_ptr, 0, u32TransferSizeSamples);*/
+
+	cudaStatus = cudaMalloc((void**)&raw_data_GPU1_ptr, u32TransferSizeSamples * sizeof(short));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for raw_data_GPU1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(raw_data_GPU1_ptr, 0, u32TransferSizeSamples);
+
+	cudaStatus = cudaMalloc((void**)&raw_data_GPU2_ptr, u32TransferSizeSamples * sizeof(short));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for raw_data_GPU2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(raw_data_GPU2_ptr, 0, u32TransferSizeSamples);
+
+	// Filtering
+	cudaStatus = cudaMalloc((void**)&filtered_signals_ptr, DcsCfg.nb_signals * (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filtered_signals_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(filtered_signals_ptr, 0, DcsCfg.nb_signals * (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(cufftComplex));
+
+	if (DcsCfg.nb_coefficients_filters == 32) {
+		filter_coefficients_CPU_ptr = (cufftComplex*)malloc(DcsCfg.nb_signals * MASK_LENGTH * sizeof(double)); // We will copy the coefficients in constant memory in convolution kernel
+		if (!filter_coefficients_CPU_ptr) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for filter_coefficients_CPU_ptr buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(filter_coefficients_CPU_ptr, 0, DcsCfg.nb_signals * MASK_LENGTH * sizeof(double));
+		}
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer1_ptr, DcsCfg.nb_channels * (MASK_LENGTH - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer1_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH - 1) * sizeof(float));
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer2_ptr, DcsCfg.nb_channels * (MASK_LENGTH - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer2_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH - 1) * sizeof(float));
+
+	}
+	else if (DcsCfg.nb_coefficients_filters == 64) {
+		filter_coefficients_CPU_ptr = (cufftComplex*)malloc(DcsCfg.nb_signals * MASK_LENGTH64 * sizeof(double)); // We will copy the coefficients in constant memory in convolution kernel
+		if (!filter_coefficients_CPU_ptr) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for filter_coefficients_CPU_ptr buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(filter_coefficients_CPU_ptr, 0, DcsCfg.nb_signals * MASK_LENGTH64 * sizeof(double));
+		}
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer1_ptr, DcsCfg.nb_channels * (MASK_LENGTH64 - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer1_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH64 - 1) * sizeof(float));
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer2_ptr, DcsCfg.nb_channels * (MASK_LENGTH64 - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer2_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH64 - 1) * sizeof(float));
+
+	}
+
+	else {
+		filter_coefficients_CPU_ptr = (cufftComplex*)malloc(DcsCfg.nb_signals * MASK_LENGTH96 * sizeof(double)); // We will copy the coefficients in constant memory in convolution kernel
+		if (!filter_coefficients_CPU_ptr) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for filter_coefficients_CPU_ptr buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(filter_coefficients_CPU_ptr, 0, DcsCfg.nb_signals * MASK_LENGTH96 * sizeof(double));
+		}
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer1_ptr, DcsCfg.nb_channels * (MASK_LENGTH96 - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer1_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH96 - 1) * sizeof(float));
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer2_ptr, DcsCfg.nb_channels * (MASK_LENGTH96 - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer2_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH96 - 1) * sizeof(float));
+
+	}
+
+	if (DcsCfg.ptsPerIGM > 0) {
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer_batches1_ptr, DcsCfg.nb_channels * DcsCfg.offset_stitching * sizeof(cufftComplex));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer_batches1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer_batches1_ptr, 0, DcsCfg.nb_channels * DcsCfg.offset_stitching * sizeof(cufftComplex));
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer_batches2_ptr, DcsCfg.nb_channels * DcsCfg.offset_stitching * sizeof(cufftComplex));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer_batches2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer_batches2_ptr, 0, DcsCfg.nb_channels * DcsCfg.offset_stitching * sizeof(cufftComplex));
+
+	}
+
+
+
+	cudaStatus = cudaMalloc((void**)&signals_channel_index_ptr, DcsCfg.nb_signals * sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for signals_channel_index_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemcpy(signals_channel_index_ptr, DcsCfg.signals_channel_index, DcsCfg.nb_signals * sizeof(int), cudaMemcpyHostToDevice);
+
+	// Fast phase Correction 
+	cudaStatus = cudaMalloc((void**)&optical_ref1_ptr, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for optical_ref1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(optical_ref1_ptr, 0, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(cufftComplex));
+
+	cudaStatus = cudaMalloc((void**)&IGMs_phase_corrected_ptr, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGMs_phase_corrected_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(IGMs_phase_corrected_ptr, 0, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(cufftComplex));
+
+
+	// Put zeros in the ref buffers
+	 // Allocate memory on the CPU (host)
+	int sizeInBytes = maximum_ref_delay_offset_pts * sizeof(cufftComplex);
+	cufftComplex* hostBuffer = new cufftComplex[sizeInBytes];
+	// Initialize host memory to zero
+	memset(hostBuffer, 0, sizeInBytes);
+
+	cudaStatus = cudaMalloc((void**)&ref1_offset_buffer1_ptr, sizeInBytes);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ref1_offset_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	// Copy data from host to device
+	cudaStatus = cudaMemcpy(ref1_offset_buffer1_ptr, hostBuffer, sizeInBytes, cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ref1_offset_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+
+	cudaStatus = cudaMalloc((void**)&ref1_offset_buffer2_ptr, sizeInBytes);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ref1_offset_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	// Copy data from host to device
+	cudaStatus = cudaMemcpy(ref1_offset_buffer2_ptr, hostBuffer, sizeInBytes, cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ref1_offset_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+
+	cudaStatus = cudaMalloc((void**)&ref2_offset_buffer1_ptr, sizeInBytes);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ref2_offset_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	// Copy data from host to device
+	cudaStatus = cudaMemcpy(ref2_offset_buffer1_ptr, hostBuffer, sizeInBytes, cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ref2_offset_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&ref2_offset_buffer2_ptr, sizeInBytes);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ref2_offset_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	// Copy data from host to device
+	cudaStatus = cudaMemcpy(ref2_offset_buffer2_ptr, hostBuffer, sizeInBytes, cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for ref2_offset_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+
+	delete[] hostBuffer;
+
+	// Unwrapping
+	int numBLocks = ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + GpuCfg.i32GpuThreads - 1) / GpuCfg.i32GpuThreads;
+	cudaStatus = cudaMalloc((void**)&unwrapped_dfr_phase_ptr, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(double));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for unwrapped_dfr_phase_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(unwrapped_dfr_phase_ptr, 0, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&two_pi_count_ptr, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for two_pi_count_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(two_pi_count_ptr, 0, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(int));
+
+	cudaStatus = cudaMalloc((void**)&blocks_edges_cumsum_ptr, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(int)); // Should be way smaller than this
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for blocks_edges_cumsum_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(blocks_edges_cumsum_ptr, 0, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(int));
+
+	cudaStatus = cudaMalloc(&increment_blocks_edges_ptr, numBLocks * sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for blocks_edges_cumsum_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(increment_blocks_edges_ptr, 0, numBLocks * sizeof(int));
+
+	// 2 ref resampling 
+	cudaStatus = cudaMalloc((void**)&IGMs_corrected_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGMs_corrected_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(IGMs_corrected_ptr, 0, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(cufftComplex));
+
+	cudaStatus = cudaMalloc((void**)&optical_ref_dfr_angle_ptr, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(float));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for optical_ref_dfr_angle_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(optical_ref_dfr_angle_ptr, 0, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(float));
+
+	cudaStatus = cudaMalloc((void**)&optical_ref1_angle_ptr, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(float));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for optical_ref1_angle_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(optical_ref1_angle_ptr, 0, (DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) * sizeof(float));
+
+	cudaStatus = cudaMalloc((void**)&uniform_grid_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(double)); // Factor of 2 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for uniform_grid_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(uniform_grid_ptr, 0, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(double));
+
+	cudaStatus = cudaMalloc((void**)&idx_nonuniform_to_uniform_grid_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(int)); // Factor of 2 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for idx_nonuniform_to_uniform_grid_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(idx_nonuniform_to_uniform_grid_ptr, 0, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(int));
+
+	// find_IGMs_ZPD_GPU
+
+	cudaStatus = cudaMalloc((void**)&IGMs_selfcorrection_in_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGMs_selfcorrection_in_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	AllocateCudaManagedBuffer((void**)&IGM_template_ptr, 2 * DcsCfg.ptsPerIGM * sizeof(cufftComplex)); // Should not be longer than ptsPerIGM
+	if (!IGM_template_ptr) {
+		snprintf(errorString, sizeof(errorString), "Could not allocate memory for IGM_template_ptr buffer.\n");
+		ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+	}
+	//IGM_template_ptr = (cufftComplex*)ALIGN_UP(IGM_template_ptr, MEMORY_ALIGNMENT);
+	cudaStatus = cudaMalloc((void**)&xcorr_IGMs_blocks_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching)) * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for xcorr_IGMs_blocks_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&LastIGMBuffer_ptr, 3 * DcsCfg.ptsPerIGM * sizeof(cufftComplex));  // Factor of 2 to make sure we always have enough space depending on the variations in dfr
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for LastIGMBuffer_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&index_max_xcorr_subpoint_ptr, 3 * ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) / DcsCfg.ptsPerIGM) * sizeof(double));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for index_max_xcorr_subpoint_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&phase_max_xcorr_subpoint_ptr, 3 * ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) / DcsCfg.ptsPerIGM) * sizeof(float));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for phase_max_xcorr_subpoint_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&index_mid_segments_ptr, 3 * ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) / DcsCfg.ptsPerIGM) * sizeof(int));  // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for index_mid_segments_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+
+	cudaStatus = cudaMalloc((void**)&unwrapped_selfcorrection_phase_ptr, 3 * ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) / DcsCfg.ptsPerIGM) * sizeof(double));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for unwrapped_selfcorrection_phase_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(unwrapped_selfcorrection_phase_ptr, 0, 3 * ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) / DcsCfg.ptsPerIGM));
+
+	// For compute_SelfCorrection_GPU
+	//AllocateCudaManagedBuffer((void**)&IGMs_selfcorrection_out_ptr, ((DcsCfg.nb_buffers_per_batch* segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(cufftComplex)); // Factor of 2 to make sure we always have enough space depending on the variations in dfr 
+	cudaStatus = cudaMalloc((void**)&IGMs_selfcorrection_out_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGMs_selfcorrection_out_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&IGMs_selfcorrection_phase_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGMs_selfcorrection_phase_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&spline_coefficients_dfr_ptr, 3 * ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) / DcsCfg.ptsPerIGM) * sizeof(double)); // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for spline_coefficients_dfr_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&spline_coefficients_f0_ptr, 3 * ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) / DcsCfg.ptsPerIGM) * sizeof(double)); // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for spline_coefficients_f0_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&splineGrid_dfr_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(double)); // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for splineGrid_dfr_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&splineGrid_f0_ptr, ((DcsCfg.nb_buffers_per_batch * segment_size_per_channel + DcsCfg.offset_stitching) + 2 * DcsCfg.ptsPerIGM) * sizeof(float)); // Factor of 3 to make sure we always have enough space depending on the variations in dfr 
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for splineGrid_f0_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	// For Compute_MeanIGM_GPU
+	cudaStatus = cudaMalloc((void**)&IGM_mean_ptr, 3 * DcsCfg.ptsPerIGM * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGM_mean_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaStatus = cudaMalloc((void**)&IGM_meanFloatOut_ptr, 3 * DcsCfg.ptsPerIGM * sizeof(cufftComplex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGM_meanFloatOut_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(IGM_meanFloatOut_ptr, 0, 3 * DcsCfg.ptsPerIGM * sizeof(cufftComplex));
+	cudaStatus = cudaMalloc((void**)&IGM_meanIntOut_ptr, 3 * DcsCfg.ptsPerIGM * sizeof(int16Complex));
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGM_meanIntOut_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(IGM_meanIntOut_ptr, 0, 3 * DcsCfg.ptsPerIGM * sizeof(int16Complex));
+	cudaStatus = cudaMemsetAsync(IGM_mean_ptr, 0, 3 * DcsCfg.ptsPerIGM * sizeof(cufftComplex), cuda_stream);
+	if (cudaStatus != cudaSuccess) {
+		snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for IGM_mean_ptr: %s\n", cudaGetErrorString(cudaStatus));
+		ErrorHandler(cudaStatus, errorString, ERROR_);
+	}
+	cudaMemset(IGM_mean_ptr, 0, 3 * DcsCfg.ptsPerIGM * sizeof(cufftComplex));
+
+}
 
 void ThreadHandler::AllocateCudaManagedBuffer(void** buffer, uint32_t size)
 {
@@ -2052,6 +3327,7 @@ int ThreadHandler::CountSubfolders(const std::string& folderPath) {
 
 void ThreadHandler::CreateOuputFiles() // Need to clean this function to use only standard library functions
 {
+	
 	if (DcsCfg.save_data_to_file)
 	{
 		char errorString[255]; // Buffer for the error message
@@ -2343,9 +3619,13 @@ void ThreadHandler::SendBuffersToMain() {
 				case none:
 					break;
 				case xcorr_data: {
-					cudaMemcpy(threadControlPtr->displaySignalXcorr_ptr, DcsDStatus.xcorr_data_out_GUI_ptr, 3 * DcsHStatus.NIGMs_ptr[0] * sizeof(float), cudaMemcpyDeviceToHost);
-					threadControlPtr->displaySignalXcorr_size = 3 * DcsHStatus.NIGMs_ptr[0] * sizeof(float); // We change size of buffer here because the nb of igms will change
-					threadControlPtr->displaySignalXcorrBufferChanged = true;
+
+					//if (batchCounter > batchCounterSendDataMain) {
+						cudaMemcpy(threadControlPtr->displaySignalXcorr_ptr, DcsDStatus.xcorr_data_out_GUI_ptr, 3 * DcsHStatus.NIGMs_ptr[0] * sizeof(float), cudaMemcpyDeviceToHost);
+						threadControlPtr->displaySignalXcorr_size = 3 * DcsHStatus.NIGMs_ptr[0] * sizeof(float); // We change size of buffer here because the nb of igms will change
+						threadControlPtr->displaySignalXcorrBufferChanged = true;
+						//batchCounterSendDataMain++;
+					//}
 					break;
 				}
 				default:
@@ -2371,7 +3651,7 @@ void ThreadHandler::LogStats(HANDLE fileHandle, unsigned int fileCount, unsigned
 	unsigned int NumberOfIGMs, unsigned int NumberOfIGMsAveraged,
 	unsigned int NumberOfIGMsTotal, unsigned int NumberOfIGMsAveragedTotal,
 	float PercentageIGMsAveraged, bool FindingFirstIGM, bool NotEnoughIGMs, unsigned int path_length_m,
-	float dfr) {
+	double dfr) {
 	DWORD dwBytesWritten = 0;
 	char buffer[1024]; // Adjust size as needed
 	int ErrorCode = 0;
@@ -2501,8 +3781,8 @@ void ThreadHandler::UpdateProgress(int32_t u32LoopCount)
 		dTotal = 1.0 * CardTotalData * DcsCfg.nb_bytes_per_sample / 1000000.0;		// Mega bytes
 		if (u32LoopCount > 3)
 		{
-			printf("\rLoopCount: %d, Total: %0.2f MB, Rate: %6.2f MB/s, Elapsed time: %u:%02u:%02u, dfr: %.4f Hz, BuffAvg: %.1f%%%-5s", u32LoopCount, dTotal, dRate, (unsigned int)h, (unsigned int)m, (unsigned int)s,
-				DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor, 100 * static_cast<double>(DcsHStatus.NIGMsAvgTot) / static_cast<double>(DcsHStatus.NIGMsTot), "");
+			printf("\rLoopCount: %d, Total: %0.2f MB, Rate: %6.2f MB/s, Elapsed time: %u:%02u:%02u, dfr: %.5f Hz, BuffAvg: %.1f%%%-5s", u32LoopCount, dTotal, dRate, (unsigned int)h, (unsigned int)m, (unsigned int)s,
+				static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor, 100 * static_cast<double>(DcsHStatus.NIGMsAvgTot) / static_cast<double>(DcsHStatus.NIGMsTot), "");
 			fflush(stdout);
 
 		}
