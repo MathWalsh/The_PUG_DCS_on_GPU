@@ -417,11 +417,11 @@ class PUGApplicationHandler(Qt.QObject):
             
             QtWidgets.QApplication.processEvents()  # Force the GUI to update
                 
-            self.responder.TCP.send_nodata(TCP_command.compute_params)   
+            self.TCP.send_nodata(TCP_command.compute_params)   
 
     def stopRealTimeACQ_GPU(self,channel=1):
             if(self.TCP.is_connected()):
-                    self.responder.TCP.send_nodata(TCP_command.stop_ACQ)
+                    self.TCP.send_nodata(TCP_command.stop_ACQ)
 
     def startRealTimeACQ_GPU(self,channel=1):
             if(self.TCP.is_connected()):
