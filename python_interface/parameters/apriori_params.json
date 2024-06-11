@@ -8,7 +8,7 @@
 	"maximum_signal_level_threshold_mV": 230,
 	"do_weighted_average": 0,
 	"reference1_laser_wvl_nm": 1550,
-  "reference2_laser_wvl_nm": 1560.417,
+	"reference2_laser_wvl_nm": 1560.417,
 	"nb_phase_references": 2,
 	"do_phase_projection": 0,
 	"projection_wvl_nm": 1570,
@@ -36,7 +36,11 @@
 	"nb_pts_interval_interpolation": 20,
 	"do_post_processing": 1,
 	"nb_coefficients_filters": 96,
-    "measurement_name":  "Test1234",
+	"measurement_name": "Test1234",
+	"slack_bot_name": "",
+	"slack_bot_token": "",
+	"slack_app_token": "",
+	"slack_channel_ID": "",
 	"date_path": "C:\\GPU_acquisition\\Post_processing\\20240603_12h13m50s",
 	"input_data_file_name": "Input_data\\post_processing_data.bin"
 }
