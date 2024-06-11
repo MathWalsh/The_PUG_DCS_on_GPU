@@ -127,6 +127,9 @@ IGMs_MF = IGMs_MF/max(IGMs_MF);
 
 % Find threshold based on noise on xcorr
 idxnoise_MF = idxmid + winHW + ptsPerIGM/2 - round(ptsPerIGM/20): idxmid + winHW + ptsPerIGM/2 +round(ptsPerIGM/20);
+if (idxmid + winHW + ptsPerIGM/2 +round(ptsPerIGM/20) > length(IGMs))
+    idxnoise_MF = idxmid + winHW + ptsPerIGM/2 - round(ptsPerIGM/20): length(IGMs);
+end
 noise_MF = abs(IGMs_MF(idxnoise_MF));
 threshold = max(noise_MF) + 3 * std(noise_MF);
 

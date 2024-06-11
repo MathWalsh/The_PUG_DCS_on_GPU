@@ -160,6 +160,34 @@ extern "C" cudaError_t fir_filter_96_coefficients_GPU(cufftComplex * signals_out
 
 
 #ifdef __cplusplus
+/**
+ * Perform a FIR filter operation on the GPU.
+ *
+ * These functions wrap the CUDA kernel call to process input signals through a FIR filter
+ * It manages memory transfers to the GPU and kernel execution settings.
+ *
+ * @param signals_out Output buffer for the filtered signals.
+ * @param signals_in Input buffer containing the raw signals.
+ * @param buffer_out Output buffer for buffer edge handling.
+ * @param buffer_in Input buffer for buffer edge handling.
+ * @param filter_coefficients_CPU Host-side array of filter coefficients. Only used on the first loop to populate constant memory.
+ * @param signals_channel_index Index array for channel processing.
+ * @param sizeIn Size of the input signal array.
+ * @param LoopCount Current iteration count, controls mask population.
+ * @param streamId CUDA stream for asynchronous operation.
+ * @param cudaStatus Status of CUDA operations, checked after kernel launch.
+ * @param DcsCfg Configuration structure for DCS operation specifics.
+ * @param GpuCfg Configuration structure for GPU execution parameters.
+ * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
+ */
+extern "C" cudaError_t fir_filter_96_coefficients_multi_buffer_GPU(cufftComplex * signals_out, short* signals_in, float* buffer_out, float* buffer_in, cufftComplex * bufffer_batches_out, cufftComplex * bufffer_batches_in,
+	cufftComplex * filter_coefficients_CPU, int* signals_channel_index, int sizeIn, int LoopCount, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
+#endif
+
+
+
+
+#ifdef __cplusplus
 /** fast_phase_correction_GPU
 *
  * Performs the fast phase correction on the GPU.
@@ -184,6 +212,11 @@ extern "C" cudaError_t fir_filter_96_coefficients_GPU(cufftComplex * signals_out
  */
 extern "C" cudaError_t fast_phase_correction_GPU(cufftComplex * IGMs_out, cufftComplex * optical_ref1_out, cufftComplex * IGMs_in, cufftComplex * optical_beat1_in, cufftComplex * optical_beat2_in,
 	cufftComplex * ref1_buffer_in, cufftComplex * ref1_buffer_out, int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
+#endif
+
+#ifdef __cplusplus
+extern "C" cudaError_t fast_phase_correction_multi_buffer_GPU(cufftComplex * IGMs_out, cufftComplex * optical_ref1_out, cufftComplex * IGMs_in, cufftComplex * optical_beat1_in, cufftComplex * optical_beat2_in,
+	int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
 #endif
 
 
@@ -214,13 +247,17 @@ extern "C" cudaError_t fast_phase_correction_GPU(cufftComplex * IGMs_out, cufftC
  * @param GpuCfg Configuration structure detailing GPU execution parameters.
  * @return cudaError_t The status of the function's execution, including memory transfer and kernel launch.
  */
-
 extern "C" cudaError_t compute_dfr_wrapped_angle_GPU(float* optical_ref_dfr_angle, float* optical_ref1_angle, cufftComplex * optical_ref1_in, cufftComplex * optical_beat1_in,
 	cufftComplex * optical_beat2_in, cufftComplex * optical_beat3_in, cufftComplex * optical_beat4_in, cufftComplex * ref1_buffer_in, cufftComplex * ref1_buffer_out,
 	cufftComplex * ref2_buffer_in, cufftComplex * ref2_buffer_out, int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus,
 	DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
 #endif
 
+#ifdef __cplusplus
+extern "C" cudaError_t compute_dfr_wrapped_angle_multi_buffer_GPU(float* optical_ref_dfr_angle, float* optical_ref1_angle, cufftComplex * optical_ref1_in, cufftComplex * optical_beat1_in,
+	cufftComplex * optical_beat2_in, cufftComplex * optical_beat3_in, cufftComplex * optical_beat4_in, int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus,
+	DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
+#endif
 
 #ifdef __cplusplus
 
@@ -274,6 +311,11 @@ extern "C" cudaError_t unwrap_phase_GPU(double* unwrapped_phase, float* optical_
  * @return cudaError_t Execution status, including memory transfer and kernel launch.
  */
 extern "C" cudaError_t fast_phase_projected_correction_GPU(cufftComplex * IGMs_out, cufftComplex * IGMs_in, float* optical_ref1_angle, double* optical_ref_dfr_unwrapped_angle,
+	int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSDeviceStatus DcsDStatus);
+#endif
+
+#ifdef __cplusplus
+extern "C" cudaError_t fast_phase_projected_correction_multi_buffer_GPU(cufftComplex * IGMs_out, cufftComplex * IGMs_in, float* optical_ref1_angle, double* optical_ref_dfr_unwrapped_angle,
 	int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSDeviceStatus DcsDStatus);
 #endif
 
@@ -373,6 +415,11 @@ extern "C" cudaError_t  find_first_IGMs_ZPD_GPU(cufftComplex * IGMs, cufftComple
 	cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
 #endif
 
+#ifdef __cplusplus
+extern "C" cudaError_t  find_first_IGMs_ZPD_multi_buffer_GPU(cufftComplex * IGMs, cufftComplex * IGM_template, cufftComplex * xcorr_blocks, double* index_mid_segments,
+	cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg, DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
+#endif
+
 
 #ifdef __cplusplus
 /** find_IGMs_ZPD_GPU
@@ -395,6 +442,13 @@ extern "C" cudaError_t  find_first_IGMs_ZPD_GPU(cufftComplex * IGMs, cufftComple
  * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
  */
 extern "C" cudaError_t find_IGMs_ZPD_GPU(cufftComplex * IGMs, cufftComplex * IGM_template, cufftComplex * xcorr_blocks, double* index_mid_segments,
+	double* max_idx_sub, float* phase_sub, double* unwrapped_phase, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg,
+	DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
+
+#endif
+
+#ifdef __cplusplus
+extern "C" cudaError_t find_IGMs_ZPD_multi_buffer_GPU(cufftComplex * IGMs, cufftComplex * IGM_template, cufftComplex * xcorr_blocks, double* index_mid_segments,
 	double* max_idx_sub, float* phase_sub, double* unwrapped_phase, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg,
 	DCSHostStatus * DcsHStatus, DCSDeviceStatus DcsDStatus);
 

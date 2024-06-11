@@ -360,8 +360,7 @@ class mainWindow(QtWidgets.QMainWindow):
         self.responder.user_message('compute params Button pressed')
         #default_stylesheet = self.computeParameters_button.styleSheet()
 
-        self.responder.computeParameters()     
-             
+        self.responder.TCP.send_nodata(TCP_command.compute_params)              
             #self.computeParameters_button.setStyleSheet(default_stylesheet)   
         
     def ACQ_GPU_buttonPressed(self):
@@ -560,29 +559,31 @@ class mainWindow(QtWidgets.QMainWindow):
                     
 
             case display_signals.xcorr_positions:
-                
-                
-                    differences_list = []
-
-                    # Calculate np.diff for each sublist after converting them to NumPy arrays
-                    for sublist in self.xcorr_positions_archive:
-                        if len(sublist) > 1:  # Ensure there are at least two elements to calculate diff
-                            # Convert sublist to a NumPy array before finding differences
-                            sublist_array = np.array(sublist)
-                            differences = np.diff(sublist_array)
-                            differences_list.append(differences)
-    
-                            # Concatenate all difference arrays
-                            all_differences = np.concatenate(differences_list)
-    
-                            # Optionally, subtract the mean of all differences from each element
-                            mean_difference = np.mean(all_differences)
-                            final_differences = all_differences - mean_difference
-
+     
+     
+                     differences_list = []
             
+                     # Calculate np.diff for each sublist after converting them to NumPy arrays
+                     for sublist in self.xcorr_positions_archive:
+                         if len(sublist) > 1:  # Ensure there are at least two elements to calculate diff
+                             # Convert sublist to a NumPy array before finding differences
+                             # Convert sublist to a NumPy array before finding differences
+                             sublist_array = np.array(sublist)
+            
+                             # differences = np.diff(sublist_array)
+                             # differences_list.append(differences)
+                             differences_list.append(sublist_array[1:])        
+                             # Concatenate all difference arrays
+                             all_differences = np.concatenate(differences_list)
                 
-                    self.curve1a.setData(np.arange(1, len(final_differences)+1),final_differences)
-                    self.curve1b.setData([], [])
+                             # Optionally, subtract the mean of all differences from each element
+                             # mean_difference = np.mean(all_differences)
+                             # final_differences = all_differences - mean_difference
+            
+             
+                     
+                     self.curve1a.setData(np.arange(1, len(all_differences)+1),all_differences)
+                     self.curve1b.setData([], [])
 
             case display_signals.xcorr_phases:
                 
@@ -656,28 +657,27 @@ class mainWindow(QtWidgets.QMainWindow):
                     self.curve2b.setData([], [])
 
             case display_signals.xcorr_positions:
-                
-                
+    
+    
                     differences_list = []
-
+            
                     # Calculate np.diff for each sublist after converting them to NumPy arrays
                     for sublist in self.xcorr_positions_archive:
                         if len(sublist) > 1:  # Ensure there are at least two elements to calculate diff
                             # Convert sublist to a NumPy array before finding differences
                             sublist_array = np.array(sublist)
-                            differences = np.diff(sublist_array)
-                            differences_list.append(differences)
-    
+                            # differences = np.diff(sublist_array)
+                            # differences_list.append(differences)
+                            differences_list.append(sublist_array[1:])         
                             # Concatenate all difference arrays
                             all_differences = np.concatenate(differences_list)
-    
-                            # Optionally, subtract the mean of all differences from each element
-                            mean_difference = np.mean(all_differences)
-                            final_differences = all_differences - mean_difference
-
-            
                 
-                    self.curve2a.setData(np.arange(1, len(final_differences)+1),final_differences)
+                            # Optionally, subtract the mean of all differences from each element
+                            # mean_difference = np.mean(all_differences)
+                            # final_differences = all_differences - mean_difference
+                            
+                    self.curve2a.setData(np.arange(1, len(all_differences)+1),all_differences)
+            
                     self.curve2b.setData([], [])
 
             case display_signals.xcorr_phases:
