@@ -30,6 +30,7 @@ from PyQt5 import Qt,QtWidgets
 from Qtcp_comm import Qtcp_comm, TCP_command
 from Qudp_comm import Qudp_comm
 import struct
+from  slack_bot import SlackChatBot
 
 from save_xcorr_utils import open_binary_file 
 
@@ -60,6 +61,22 @@ class PUGApplicationHandler(Qt.QObject):
         self.refreshTimer = Qt.QTimer(self)
         self.refreshTimer.timeout.connect(self.refreshTimerEvent)
 
+        # if apriori file has proper info, setting up a slack bot that will send error messages to the selected slack channel
+        slack_bot_token = self.main_window.apriori_json_form.jsonData.get('slack_bot_token', "")
+        slack_app_token = self.main_window.apriori_json_form.jsonData.get('slack_app_token', "")
+        slack_channel_ID = self.main_window.apriori_json_form.jsonData.get('slack_channel_ID', "")
+        
+        if slack_bot_token != "" and slack_app_token != "" and slack_channel_ID != "":
+            print("slack ok")
+            
+            slack_bot_name = self.main_window.apriori_json_form.jsonData.get('slack_bot_name', "")
+            
+            self.slack_bot = SlackChatBot(slack_bot_token, slack_app_token,slack_bot_name, slack_channel_ID)
+            self.slack_bot.setResponder(self)
+            self.slack_bot.start()
+        else:
+            print("slack no")
+            self.slack_bot= None;
         self.startTimer()
 
     def show_main_window(self):
@@ -83,6 +100,8 @@ class PUGApplicationHandler(Qt.QObject):
             message (str): The message to display.
         """
         self.message_window.messageBox.append(message)
+        if (self.slack_bot != None):
+            self.slack_bot.send_message(message)
         
     def newMessageUDP(self,message):
         self.parse_UDP_RemoteControl(message)
@@ -309,8 +328,16 @@ class PUGApplicationHandler(Qt.QObject):
                 self.main_window.ACQ_GPU_button.setText("STOP ACQ")
                 self.main_window.rawAcquisition_button.setText("STOP ACQ")
                
-                self.main_window.igm1_pathLength_spinBox.setValue(self.main_window.apriori_json_form.jsonData['references_total_path_length_offset_m'])
-                self.main_window.igm1_experimentName.setText(self.main_window.apriori_json_form.jsonData['measurement_name'])
+
+                
+                # Fetch the values from jsonData with default values if keys are missing
+                path_length_offset = self.main_window.apriori_json_form.jsonData.get('references_total_path_length_offset_m', 0.0)
+                experiment_name = self.main_window.apriori_json_form.jsonData.get('measurement_name', "")
+
+                # Set the values in the UI
+                self.main_window.igm1_pathLength_spinBox.setValue(path_length_offset)
+                self.main_window.igm1_experimentName.setText(experiment_name)
+                
                 
                 self.main_window.igm1_pathLength_spinBox.setEnabled(True)
                 self.main_window.igm1_experimentName.setEnabled(True)
@@ -342,8 +369,14 @@ class PUGApplicationHandler(Qt.QObject):
             case TCP_command.start_GPU_fromFile:
                 self.user_message("Post processing succes")
                 self.main_window.do_post_process_button.setEnabled(True)
-                self.main_window.igm1_pathLength_spinBox.setValue(self.main_window.apriori_json_form.jsonData['references_total_path_length_offset_m'])
-                self.main_window.igm1_experimentName.setText(self.main_window.apriori_json_form.jsonData['measurement_name'])
+                
+                # Fetch the values from jsonData with default values if keys are missing
+                path_length_offset = self.main_window.apriori_json_form.jsonData.get('references_total_path_length_offset_m', 0.0)
+                experiment_name = self.main_window.apriori_json_form.jsonData.get('measurement_name', "")
+
+                # Set the values in the UI
+                self.main_window.igm1_pathLength_spinBox.setValue(path_length_offset)
+                self.main_window.igm1_experimentName.setText(experiment_name)
                 
                 self.main_window.igm1_pathLength_spinBox.setEnabled(True)
                 self.main_window.igm1_experimentName.setEnabled(True)
@@ -467,7 +500,7 @@ class PUGApplicationHandler(Qt.QObject):
                         return
                 
 
-                fs = self.main_window.gage_json_form.jsonData['sampling_rate_Hz']
+                fs = self.main_window.gage_json_form.jsonData.get('sampling_rate_Hz', 200e6)
              
                 path_length_pts = [round(delay_meters*fs/c)]
              
@@ -488,7 +521,7 @@ class PUGApplicationHandler(Qt.QObject):
                         return
                 
                 
-                fs = self.main_window.gage_json_form.jsonData['sampling_rate_Hz']
+                fs = self.main_window.gage_json_form.jsonData.get('sampling_rate_Hz', 200e6)
              
                 path_length_pts = [round(delay_seconds*fs)]
              
