@@ -115,6 +115,9 @@ private:
 
 	int								maximum_ref_delay_offset_pts = 10e3; // Arbitrary maximum delay, should be enough for large path length,
 																		 // seems to be problematic when this value is too high for unknown reasons (i.e. 100e3)
+
+	uint32_t						batchCounter = 0;
+	uint32_t						batchCounterSendDataMain = 1;
 	float							speed_of_light = 299792458; // speed of light m / s	
 	std::ifstream inputfile; // input file for processing from disk
 	// CPU buffers
@@ -161,6 +164,11 @@ private:
 	int* signals_channel_index_ptr = NULL;						// Chooses which channel to filter (used because we have more signal than channels)
 	float* filter_buffer_in_ptr = NULL;		// This chooses the input buffer for the convolution 
 	float* filter_buffer_out_ptr = NULL;		// This chooses the output buffer for the convolution 
+
+	cufftComplex* filter_buffer_batches1_ptr = NULL;
+	cufftComplex* filter_buffer_batches2_ptr = NULL;
+	cufftComplex* filter_buffer_batches_in_ptr = NULL;
+	cufftComplex* filter_buffer_batches_out_ptr = NULL;
 
 
 	// Fast phase Correction 
@@ -249,11 +257,22 @@ public:														// Constructor
 	void		CreatecuSolverHandle();						
 
 	void		AllocateGPUBuffers();						// Allocate all CUDA buffers not the cleanest code as it needs to be changed each time we need a new buffer 
+	void		AllocateGPUMultiBuffers();						// Allocate all CUDA buffers not the cleanest code as it needs to be changed each time we need a new buffer 
 	void		AllocateCudaManagedBuffer(void** buffer, uint32_t size);	// Allocate one managed buffer, and zero it out
 
 	void		copyDataToGPU_async(int32_t u32LoopCount);
 
 	void		ProcessInGPU(int32_t u32LoopCount);
+
+	//void		FilterInGPU(int32_t u32LoopCount);
+
+	void		FilterMultiBufferInGPU(int32_t u32LoopCount);
+
+	void		FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount);
+
+	void		XcorrMultiBufferInGPU(int32_t u32LoopCount);
+
+	void		SelfCorrectionMultiBufferInGPU(int32_t u32LoopCount);
 
 	void		setReadyToProcess(bool value);				// Sets the atomic flag to tell the thread is ready to process or not
 
@@ -274,7 +293,7 @@ public:														// Constructor
 		unsigned int NumberOfIGMs, unsigned int NumberOfIGMsAveraged,
 		unsigned int NumberOfIGMsTotal, unsigned int NumberOfIGMsAveragedTotal,
 		float PercentageIGMsAveraged, bool FindingFirstIGM, bool NotEnoughIGMs, unsigned int path_length_m,
-		float dfr);
+		double dfr);
 
 	void		setStartTimeBuffer(int32_t u32LoopCount);
 	void		SetupCounter();

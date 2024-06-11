@@ -404,7 +404,7 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
 
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "nb_pts_post_processing");
         if (cJSON_IsNumber(item)) {
-            DcsCfg.nb_pts_post_processing = item->valueint;
+            DcsCfg.nb_pts_post_processing_64bit = static_cast<int64_t>(item->valuedouble);
         }
 
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "save_data_to_file");
@@ -610,7 +610,7 @@ void DCSProcessingHandler::modify_DCSCONFIG_field(const char* field, const void*
         DcsCfg.input_data_file_name = _strdup((const char*)value);
     }
     else if (strcmp(field, "nb_pts_post_processing") == 0) {
-        DcsCfg.nb_pts_post_processing = *(const int*)value;
+        DcsCfg.nb_pts_post_processing_64bit = *(const int64_t*)value;
     }
     else if (strcmp(field, "save_data_to_file") == 0) {
         DcsCfg.save_data_to_file = *(const int*)value;

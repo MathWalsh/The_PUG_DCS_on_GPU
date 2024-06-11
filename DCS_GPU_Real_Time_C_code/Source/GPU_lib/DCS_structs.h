@@ -105,7 +105,11 @@ typedef struct
 	int references_offset_pts;
 	int IGMs_max_offset_xcorr;
 
-
+	// General (multi-buffer)
+	int nb_buffers_per_batch;
+	int offset_stitching;
+	int nb_pts_extra;
+	int64_t nb_pts_post_processing_64bit; // need a new variable because changing other variable changes structure alignment??
 }DCSCONFIG, * PDCSCONFIG;
 
 
@@ -162,6 +166,12 @@ struct DCSHostStatus {
 	double IGMs_rotation_angle;
 
 	double* ptsPerIGM_first_IGMs_ptr;
+
+
+	// General GPU variables (multi-buffer)
+	int* segment_offset_ptr; // First IGM start offset
+
+
 	// Constructor
 	DCSHostStatus()
 		:
@@ -212,7 +222,9 @@ struct DCSHostStatus {
 		NIGMsTot(0),
 		IGMs_rotation_angle(0.0f),
 
-		ptsPerIGM_first_IGMs_ptr(new double[1])
+		ptsPerIGM_first_IGMs_ptr(new double[1]),
+
+		segment_offset_ptr(new int[4])
 	{
 		// Constructor body (if needed)
 	}
@@ -234,6 +246,7 @@ struct DCSHostStatus {
 		delete[] UnwrapError_ptr;
 		delete[] FindFirstIGM;
 		delete[] ptsPerIGM_first_IGMs_ptr;
+		delete[] segment_offset_ptr;
 	}
 
 };
@@ -286,6 +299,9 @@ struct DCSDeviceStatus {
 	int lwork;
 
 	double* ptsPerIGM_first_IGMs_ptr;
+
+	int* offset_start_ptr;
+
 	// Constructor
 	DCSDeviceStatus()
 		:
@@ -330,8 +346,8 @@ struct DCSDeviceStatus {
 		d_work(nullptr),
 		devInfo(nullptr),
 		lwork(0),
-		ptsPerIGM_first_IGMs_ptr(nullptr)
-
+		ptsPerIGM_first_IGMs_ptr(nullptr),
+		offset_start_ptr(nullptr)
 	{
 		// Constructor body (if needed)
 	}
