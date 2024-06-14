@@ -109,7 +109,9 @@ typedef struct
 	int nb_buffers_per_batch;
 	int offset_stitching;
 	int nb_pts_extra;
-	int64_t nb_pts_post_processing_64bit; // need a new variable because changing other variable changes structure alignment??
+	int64_t nb_pts_post_processing_64bit;  // need a new variable because changing other variable changes structure alignment??
+	int nb_harmonic;
+
 }DCSCONFIG, * PDCSCONFIG;
 
 
@@ -170,7 +172,8 @@ struct DCSHostStatus {
 
 	// General GPU variables (multi-buffer)
 	int* segment_offset_ptr; // First IGM start offset
-
+	int NIGMsBlockTot;
+	double percentageAvgBlock;
 
 	// Constructor
 	DCSHostStatus()
@@ -224,7 +227,10 @@ struct DCSHostStatus {
 
 		ptsPerIGM_first_IGMs_ptr(new double[1]),
 
-		segment_offset_ptr(new int[4])
+		segment_offset_ptr(new int[4]),
+
+		NIGMsBlockTot(0),
+		percentageAvgBlock(0.0f)
 	{
 		// Constructor body (if needed)
 	}

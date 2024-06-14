@@ -6,22 +6,26 @@ With The PUG, you can focus more on the exciting scientific discoveries and less
 How to use The PUG
 ---------------------------
 1. Download the required files from the "Releases section": https://github.com/MathWalsh/The_PUG_DCS_on_GPU/releases/latest
-2. Read and follow the "Instructions and operation manual for The PUG.pdf" file.
+2. Read and follow the "Instructions-and-operation-manual-for-The-PUG.pdf" file.
 
 Hardware requirements
 ---------------------------
 1. Windows operating system (version 10 or 11) with a minimum of 32 gB of ram and 4 processing cores (4 CPU cores)
-2. PCIe gage digitizer (Code tested on a CSE161G4-LR)
-3. NVIDIA graphical processing unit (Code tested on a GeForce RTX 4090)
+2. PCIe gage digitizer (Code tested on a CSE161G4-LR and CSE1442)
+3. NVIDIA graphical processing unit (Code tested on a GeForce RTX 4090 and 4080 Super, 4070 Super)
    
 See intructions file for more details
 
 Software requirements
 ---------------------------
-To simply run the python GUI and the compiled C executable :
-1. A Python interpreter with the necessary libraries (See instruction for the detailed list). We recommend the latest WinPython distribution (https://sourceforge.net/projects/winpython/files/)
-2. CUDA Toolkit 12.3 with your windows version (10 or 11) (https://developer.nvidia.com/cuda-12-3-0-download-archive?target_os=Windows&target_arch=x86_64)
-3. Matlab Runtime 2023b on windows (https://www.mathworks.com/products/compiler/matlab-runtime.html)
+To simply run the python GUI and the compiled C executable:
+1. Gage drivers
+2. A Python interpreter with the necessary libraries (See instruction for the detailed list). We recommend the latest WinPython distribution (https://sourceforge.net/projects/winpython/files/)
+3. Visual studio 2022 with Python development and Desktop development with C++ packages (https://visualstudio.microsoft.com/vs/)
+4. CUDA Toolkit 12.3 with your windows version (10 or 11) (https://developer.nvidia.com/cuda-12-3-0-download-archive?target_os=Windows&target_arch=x86_64)
+5. Matlab Runtime 2023b on windows (https://www.mathworks.com/products/compiler/matlab-runtime.html)
+
+See intructions file for more details
 
 To open the project and look at the C++ code, see intructions file for more details
 

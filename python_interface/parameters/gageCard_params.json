@@ -1,6 +1,6 @@
 {
-    "nb_pts_per_buffer": 60000000,
-    "segment_size": 60000000,
+    "nb_pts_per_buffer": 20000000.0,
+    "segment_size": 20000000.0,
     "nb_channels": 4,
     "sampling_rate_Hz": 200000000,
     "external_clock": 0,
@@ -19,5 +19,5 @@
     "trigger_level": 0,
     "trigger_source": 1,
     "nb_bytes_per_sample": 2,
-    "ref_clock_10MHz": 0
+    "ref_clock_10MHz": 1
 }

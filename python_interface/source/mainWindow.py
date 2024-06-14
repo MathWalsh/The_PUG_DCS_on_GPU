@@ -711,8 +711,9 @@ class mainWindow(QtWidgets.QMainWindow):
             self.xcorr_phases_archive.append(self.XCorr_phase)
             
             # self.ADC_range_thermo.setValue(statistics.mean(self.XCorr_amplitude)/1.45e10*100)
-            self.ADC_range_thermo.setValue(statistics.mean(self.XCorr_amplitude)*
-                                           self.computed_json_form.jsonData['xcorr_factor_mV'])
+            if len(self.XCorr_amplitude) > 0:
+                self.ADC_range_thermo.setValue(statistics.mean(self.XCorr_amplitude)*
+                                               self.computed_json_form.jsonData['xcorr_factor_mV'])
             
             write_data_xcorr(self.xcorr_file, self.XCorr_amplitude) # Write xcorr data to file
             self.IQview.setValues(self.XCorr_phase)

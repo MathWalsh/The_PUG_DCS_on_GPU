@@ -412,10 +412,11 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
             DcsCfg.save_data_to_file = item->valueint;
         }
 
-        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "do_weighted_average");
+        /*item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "do_weighted_average");
         if (cJSON_IsNumber(item)) {
             DcsCfg.do_weighted_average = item->valueint;
-        }
+        }*/
+        DcsCfg.do_weighted_average = 0; // Needs to be tester before going back in apriori
 
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "do_phase_projection");
         if (cJSON_IsNumber(item)) {
@@ -435,6 +436,11 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "spectro_mode");
         if (cJSON_IsNumber(item)) {
             DcsCfg.spectro_mode = item->valueint;
+        }
+
+        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "nb_harmonic");
+        if (cJSON_IsNumber(item)) {
+            DcsCfg.nb_harmonic = item->valueint;
         }
 
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "nb_phase_references");
@@ -472,7 +478,14 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
             }
 
         }
+        else {
 
+            char errorString[255]; // Buffer for the error message
+            snprintf(errorString, sizeof(errorString), "Error: Invalid signals_channel_index index value. An array is needed for this parameters even if you are using only 1 channel.\nDefault value 1 was used.\n");
+            ErrorHandler(-1, errorString, WARNING_); // Assuming -1 is a generic error code for memory allocation failure
+            DcsCfg.signals_channel_index = new int[1];
+            DcsCfg.signals_channel_index[0] = 0;
+        }
 
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "decimation_factor");
         if (cJSON_IsNumber(item)) {
@@ -816,7 +829,7 @@ bool DCSProcessingHandler::VerifyDCSConfigParams() {
             ErrorHandler(0, "Provide a valid absolute path to the apriori params\n", WARNING_);
         }
 
-        if (!isPositiveInteger(DcsCfg.nb_pts_post_processing)) {
+        if (DcsCfg.nb_pts_post_processing_64bit < 0) {
             ErrorHandler(0, "Provide a valid nb_pts_post_processing to the apriori params\n", WARNING_);
         }
 
@@ -824,9 +837,9 @@ bool DCSProcessingHandler::VerifyDCSConfigParams() {
             ErrorHandler(0, "Provide a valid save_data_to_file (0 or 1) to the apriori params\n", WARNING_);
         }
 
-        if (DcsCfg.do_weighted_average != 0 && DcsCfg.do_weighted_average != 1) {
-            ErrorHandler(0, "Provide a valid do_weighted_average (0 or 1) to the apriori params\n", WARNING_);
-        }
+        //if (DcsCfg.do_weighted_average != 0 && DcsCfg.do_weighted_average != 1) {
+        //    ErrorHandler(0, "Provide a valid do_weighted_average (0 or 1) to the apriori params\n", WARNING_);
+        //}
 
         if (DcsCfg.do_phase_projection != 0 && DcsCfg.do_phase_projection != 1) {
             ErrorHandler(0, "Provide a valid do_phase_projection (0 or 1) to the apriori params\n", WARNING_);

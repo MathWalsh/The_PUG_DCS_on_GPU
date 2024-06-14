@@ -106,7 +106,6 @@ MainThreadHandler::MainThreadHandler(std::string DCSParams, std::string GaGePara
 
 // Static console control handler function
 BOOL WINAPI MainThreadHandler::ConsoleCtrlHandlerStatic(DWORD dwType) {
-	printf("ConsoleCtrlHandlerStatic\n");
 	if (dwType == CTRL_CLOSE_EVENT) {
 		// Perform necessary cleanup
 		// Since this is a static method, it can't directly access instance members.

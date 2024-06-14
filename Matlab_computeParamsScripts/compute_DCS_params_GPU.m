@@ -60,6 +60,9 @@ fclose(fid);
 data = zeros(apriori_params.nb_pts_per_channel_compute, nb_signals);
 dataF = zeros(apriori_params.nb_pts_per_channel_compute, nb_signals);
 
+if (strcmp(apriori_params.signals_channel_index(1), "[") == 1)
+    apriori_params.signals_channel_index = str2num(apriori_params.signals_channel_index(2));
+end
 for i=1:nb_signals
 
     idxstart = apriori_params.signals_channel_index(i);
@@ -74,8 +77,12 @@ if apriori_params.nb_coefficients_filters == 32
     nb_pts_filt = 32; % This is because we use 32 or 64 tap on the GPU application
 elseif apriori_params.nb_coefficients_filters == 64
     nb_pts_filt = 64; % This is because we use 32 or 64 tap on the GPU application
-else
+elseif apriori_params.nb_coefficients_filters == 96
     nb_pts_filt = 96; % This is because we use 32 or 64 tap on the GPU application
+elseif apriori_params.nb_coefficients_filters == 128
+    nb_pts_filt = 128; % This is because we use 32 or 64 tap on the GPU application
+else
+    nb_pts_filt = 256; % This is because we use 32 or 64 tap on the GPU application
 end
 BW_IGMs = (apriori_params.IGMs_spectrum_max_freq_Hz-apriori_params.IGMs_spectrum_min_freq_Hz)/2;
 BW_CEO = apriori_params.bandwidth_filter_ceo;
@@ -246,18 +253,20 @@ else
     clear phi1 phi1C
 
     %%
-        if (apriori_params.spectro_mode == 0 || apriori_params.spectro_mode == 2)
+    if (apriori_params.spectro_mode == 0 || apriori_params.spectro_mode == 2)
         % We take the combination with the minimum variance
         if idxmin == 1
 
             conjugateCW1_C1 = 0;
             conjugateCW1_C2 = 0;
+            refCW1 = ref1;
+
             if (apriori_params.spectro_mode == 0)
-                refCW1 = ref1;
+                phiFPC = unwrap(angle(double(refCW1))); % calculate phase to correct
             elseif (apriori_params.spectro_mode == 2)
-                refCW1 = ref1.^(apriori_params.nb_harmonic); % this should fold around fr/2, how can we achive this...
+                phiFPC = unwrap(angle(double(refCW1)))*apriori_params.nb_harmonic; % calculate phase to correct
+                refCW1 = exp(1j*phiFPC);
             end
-            phiFPC = unwrap(angle(double(refCW1))); % calculate phase to correct
 
             % We have two possibilities left, we try both possibilities and take
             % the one with the minimum variance on the ZPD phase
@@ -300,7 +309,7 @@ else
                 elseif (apriori_params.spectro_mode == 2)
                     fdfr(1) = -apriori_params.nb_harmonic*fPC(1); % modulo fr/2?
                 end
-                
+
                 refCW1 = conj(refCW1);
                 conjugateCW1_C1 = 1;
                 conjugateCW1_C2 = 1;
@@ -319,22 +328,19 @@ else
             conjugateCW1_C1 = 0;
             conjugateCW1_C2 = 1;
             conjugatePhaseCorrection = 0;
+            refCW1 = ref1C;
+
             if (apriori_params.spectro_mode == 0)
-                refCW1 = ref1C;
-            elseif (apriori_params.spectro_mode == 2)
-                refCW1 = ref1C.^(apriori_params.nb_harmonic); % this should fold around fr/2, how can we achive this...
-            end 
-
-
-            % if (apriori_params.spectro_mode == 0)
                 phiFPC = unwrap(angle(double(refCW1))); % calculate phase to correct
-            % elseif (apriori_params.spectro_mode == 2)
-            %     phiFPC = apriori_params.nb_harmonic*unwrap(angle(double(refCW1))); % calculate phase to correct
+            elseif (apriori_params.spectro_mode == 2)
+                phiFPC = unwrap(angle(double(refCW1)))*apriori_params.nb_harmonic; % calculate phase to correct
+                refCW1 = exp(1j*phiFPC);
+            end
             %     FPC_freq = apriori_params.nb_harmonic*fPC(2);
             %     if (FPC_freq > apriori_params.fr_approx_Hz/2)
             %         FPC_shift = apriori_params.fr_approx_Hz/2 - FPC_freq; % to be tested, probably wrong....
             %     end
-            % 
+            %
             % end
             % We have two possibilities left, we try both possibilities and take
             % the one with the minimum variance on the ZPD phase
@@ -360,7 +366,7 @@ else
                 if (apriori_params.spectro_mode == 0)
                     fdfr(1) = fPC(2);
                 elseif (apriori_params.spectro_mode == 2)
-                    fdfr(1) = apriori_params.nb_harmonic*fPC(2); % modulo fr/2?
+                    fdfr(1) = fPC(2)*apriori_params.nb_harmonic; % modulo fr/2?
                 end
                 template = template1;
                 templateFull = templateFull1;
@@ -378,7 +384,7 @@ else
                 if (apriori_params.spectro_mode == 0)
                     fdfr(1) = -fPC(2);
                 elseif (apriori_params.spectro_mode == 2)
-                    fdfr(1) = -apriori_params.nb_harmonic*fPC(2); % modulo fr/2?
+                    fdfr(1) = -fPC(2)*apriori_params.nb_harmonic; % modulo fr/2?
                 end
                 refCW1 = conj(refCW1);
                 conjugateCW1_C1 = 1;
@@ -543,7 +549,7 @@ else
                 x =1;
                 % normalized_phase_slope = normalized_phase_slope + normalized_phase_slope1;
                 normalized_phase_slope = normalized_phase_slope1;
-                
+
                 ptsPerIGM_sub = ptsPerIGM_sub1;
                 template = template1;
                 templateFull = templateFull1;
@@ -615,7 +621,7 @@ else
             projection_factor = 0;
             projected_wvl = 0;
             fshift_optical = normalized_phase_slope/2/pi*fs/dfr*apriori_params.fr_approx_Hz;
-            
+
             if (apriori_params.central_IGM_wavelength_approx_nm > apriori_params.reference1_laser_wvl_nm)
                 freq_0Hz_electrical_approx_Hz = f_laser - abs(fshift_optical);
             else
@@ -894,7 +900,7 @@ else
         % else
         %     error("Could not find proper correction parameters that minized the phase and dfr noise\n");
         % end
-         if (idxPhi == idxLocs)
+        if (idxPhi == idxLocs)
             x = idxPhi;
         elseif (abs(normalized_phase_slope(idxPhi)) < abs(normalized_phase_slope(idxLocs)))
             fprintf('The minimal variance on xcorr positions does not match the minimal variance on xcorr phase... \n Verify correction parameters\n')
