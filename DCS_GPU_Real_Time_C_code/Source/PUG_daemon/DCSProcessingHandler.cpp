@@ -865,9 +865,9 @@ bool DCSProcessingHandler::VerifyDCSConfigParams() {
             ErrorHandler(0, "Provide a valid max_delay_xcorr (> 0) to the apriori params\n", WARNING_);
         }
 
-        if (!isPositiveInteger(DcsCfg.nb_pts_interval_interpolation)) {
+       /* if (!isPositiveInteger(DcsCfg.nb_pts_interval_interpolation)) {
             ErrorHandler(0, "Provide a valid nb_pts_interval_interpolation (> 0) to the apriori params\n", WARNING_);
-        }
+        }*/
    
     }
 
