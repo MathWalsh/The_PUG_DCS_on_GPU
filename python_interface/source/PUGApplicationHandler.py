@@ -67,7 +67,7 @@ class PUGApplicationHandler(Qt.QObject):
         slack_channel_ID = self.main_window.apriori_json_form.jsonData.get('slack_channel_ID', "")
         
         if slack_bot_token != "" and slack_app_token != "" and slack_channel_ID != "":
-            print("slack ok")
+            #print("slack ok")
             
             slack_bot_name = self.main_window.apriori_json_form.jsonData.get('slack_bot_name', "")
             
@@ -75,7 +75,7 @@ class PUGApplicationHandler(Qt.QObject):
             self.slack_bot.setResponder(self)
             self.slack_bot.start()
         else:
-            print("slack no")
+            #print("slack no")
             self.slack_bot= None;
         self.startTimer()
 
@@ -134,6 +134,8 @@ class PUGApplicationHandler(Qt.QObject):
                     self.stopSavingIGMS(channel) 
             case "newIGMpathDelay":
                     self.changeReferencesDelay_seconds(channel,float(arguments[1]))
+            case "newIGMpathDelay_m":
+                self.changeReferencesDelay_meters(channel,float(arguments[1]))
             case "newGroupName":
                     self.changeExperimentName(channel,arguments[1])
             case "newNumberCoaddCycles":
@@ -467,6 +469,8 @@ class PUGApplicationHandler(Qt.QObject):
                 match channel:
                     case 1:
                         self.main_window.igm1_saveIGMs_checkBox.setChecked(True)
+                        self.main_window.igm1_saveIGMs_checkBox.setStyleSheet("QCheckBox { background-color: green; }")
+                        
                     case _:
                         self.user_message("More than one channel not supported")
                         return
@@ -481,6 +485,7 @@ class PUGApplicationHandler(Qt.QObject):
                 match channel:
                     case 1:
                         self.main_window.igm1_saveIGMs_checkBox.setChecked(False)
+                        self.main_window.igm1_saveIGMs_checkBox.setStyleSheet("QCheckBox { background-color: red; }")
                     case _:
                         self.user_message("More than one channel not supported")
                         return
