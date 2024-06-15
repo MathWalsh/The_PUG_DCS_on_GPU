@@ -204,7 +204,7 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 		LogStats(fileHandle_log_DCS_Stats, fileCount, batchCounter, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
 			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], 0,
-			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor));
+			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor), DcsCfg.measurement_name);
 
 	}
 	if (batchCounter > 1) {
@@ -212,7 +212,7 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 		LogStats(fileHandle_log_DCS_Stats, fileCount, batchCounter - 1, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
 			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], static_cast<int>(delay),
-			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor));
+			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor), DcsCfg.measurement_name);
 	}
 
 
@@ -370,7 +370,7 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 	}
 	else if (DcsCfg.nb_phase_references == 2) {
 
-		if (DcsCfg.do_phase_projection == 0) {
+		if (DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 0) {
 
 			// Fast phase correction with one of the references
 			cudaStatus = fast_phase_correction_multi_buffer_GPU(IGMs_phase_corrected_ptr, optical_ref1_ptr, filtered_signals_ptr + DcsHStatus.segment_offset_ptr[0],
@@ -383,7 +383,7 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 			}
 
 		}
-		else if (DcsCfg.do_phase_projection == 1 || DcsCfg.spectro_mode == 1) {
+		else if ((DcsCfg.do_phase_projection == 1 && DcsCfg.spectro_mode == 0) || DcsCfg.spectro_mode == 1) {
 
 			//Create the dfr reference 
 			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
@@ -417,8 +417,7 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 			}
 
 		}
-
-		if (DcsCfg.do_phase_projection == 0 && DcsCfg.do_fast_resampling == 1) {
+		if (DcsCfg.do_phase_projection == 0 && DcsCfg.do_fast_resampling == 1 && DcsCfg.spectro_mode == 0) {
 			//Create the dfr reference 
 			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
 			cudaStatus = compute_dfr_wrapped_angle_multi_buffer_GPU(optical_ref_dfr_angle_ptr, optical_ref1_angle_ptr, optical_ref1_ptr, filtered_signals_ptr + +1 * DcsHStatus.segment_size_ptr[0] + DcsHStatus.segment_offset_ptr[1],
@@ -461,7 +460,7 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 				ErrorHandler(0, errorString, ERROR_);
 			}
 		}
-		else if (DcsCfg.do_phase_projection == 1 && DcsCfg.do_fast_resampling == 1) {
+		else if (DcsCfg.do_phase_projection == 1 && DcsCfg.do_fast_resampling == 1 && DcsCfg.spectro_mode == 0) {
 
 			// Create linspace for resampling with the slope parameters estimated in the unwrap
 			int index_linspace = 0;
@@ -480,12 +479,13 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 				ErrorHandler(0, errorString, ERROR_);
 			}
 		}
+		
 		else {
 			IGMs_corrected_ptr = IGMs_phase_corrected_ptr;
 		}
 	}
 	// We bring the IGM spectrum near 0 Hz for the self-correction (Better for xcorr and resampling)
-	if (DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 0 || DcsCfg.nb_phase_references == 0 || DcsCfg.nb_phase_references == 1) {
+	if (DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 0 || DcsCfg.nb_phase_references == 0 || DcsCfg.nb_phase_references == 1 || DcsCfg.spectro_mode == 2) {
 
 		int blocksRotate = (DcsHStatus.segment_size_ptr[1] + 128 - 1) / 128;
 		rotate_IGMs_phase_GPU(IGMs_corrected_ptr, DcsHStatus.IGMs_rotation_angle, DcsCfg.slope_self_correction, DcsHStatus.segment_size_ptr[1], DcsCfg.decimation_factor,
@@ -530,6 +530,7 @@ void ThreadHandler::XcorrMultiBufferInGPU(int32_t u32LoopCount)
 			}
 			if (batchCounter > 0) {
 				DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
+				DcsHStatus.NIGMsBlockTot += DcsHStatus.NIGMs_ptr[0];
 			}
 
 		}
@@ -614,6 +615,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		if (DcsHStatus.NotEnoughIGMs[0]) {
 			DcsHStatus.FindFirstIGM[0] = true;
 			DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
+			DcsHStatus.NIGMsBlockTot += DcsHStatus.NIGMs_ptr[0];
 		}
 		cudaMemcpy(DcsHStatus.UnwrapError_ptr, DcsDStatus.UnwrapError_ptr, sizeof(bool), cudaMemcpyDeviceToHost); // Check if we have an unwrap in self-correction
 
@@ -667,6 +669,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		}
 
 		DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
+		DcsHStatus.NIGMsBlockTot += DcsHStatus.NIGMs_ptr[0];
 		if (DcsHStatus.UnwrapError_ptr[0] == false) {
 			// Self correction (slow phase correction and resampling)
 			cudaStatus = compute_SelfCorrection_GPU(IGMs_selfcorrection_out_ptr, IGMs_selfcorrection_phase_ptr, IGMs_selfcorrection_in_ptr, splineGrid_f0_ptr, splineGrid_dfr_ptr, uniform_grid_ptr,
@@ -693,10 +696,11 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 				snprintf(errorString, sizeof(errorString), "Compute_MeanIGM_GPU launch failed : %s\n", cudaGetErrorString(cudaStatus));
 				ErrorHandler(0, errorString, ERROR_);
 			}
-
+		
 			// Transfering data to be saved
 			if (DcsHStatus.SaveMeanIGM) {
-				DcsHStatus.NIGMsBlock = 0;
+				/*DcsHStatus.NIGMsBlock = 0;
+				DcsHStatus.NIGMsBlockTot = 0;*/
 				DcsHStatus.NBufferAvg = 0;
 				DcsHStatus.max_xcorr_sum_ptr[0] = 0.0f;
 				cudaMemset(DcsDStatus.max_xcorr_sum_ptr, 0, sizeof(double));
@@ -745,7 +749,13 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 
 		}
 	}
+	if (DcsHStatus.NIGMsBlockTot > 0)
+		DcsHStatus.percentageAvgBlock = static_cast<double>(DcsHStatus.NIGMsBlock) / static_cast<double>(DcsHStatus.NIGMsBlockTot) * 100;
 
+	if (DcsHStatus.SaveMeanIGM) {
+		DcsHStatus.NIGMsBlock = 0;
+		DcsHStatus.NIGMsBlockTot = 0;
+	}
 	// If we found the first IGM with good signal
 	if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.max_xcorr_first_IGM_ptr[0] > DcsCfg.xcorr_threshold_low) {
 		DcsHStatus.FirstIGMFound = true;
@@ -759,7 +769,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		LogStats(fileHandle_log_DCS_Stats, fileCount, u32LoopCount, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
 			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], 0,
-			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor));
+			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor), DcsCfg.measurement_name);
 
 	}
 	if (u32LoopCount > 1) {
@@ -767,7 +777,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		LogStats(fileHandle_log_DCS_Stats, fileCount, u32LoopCount - 1, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
 			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], static_cast<int>(delay),
-			static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / static_cast<double>(DcsCfg.decimation_factor));
+			static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / static_cast<double>(DcsCfg.decimation_factor), DcsCfg.measurement_name);
 	}
 	// Reset parameters for first part of correction
 	// Use correct data buffer for convolution depending on the u32LoopCount
@@ -874,7 +884,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
 		}
 	}
-	else {
+	else if (DcsCfg.nb_coefficients_filters == 96) {
 		// Filter the channels with a 96 taps fir filters
 		cudaStatus = fir_filter_96_coefficients_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_coefficients_CPU_ptr,
 			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
@@ -884,7 +894,28 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
 		}
 	}
+	else if (DcsCfg.nb_coefficients_filters == 128) {
+		// Filter the channels with a 96 taps fir filters
+		cudaStatus = fir_filter_128_coefficients_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_coefficients_CPU_ptr,
+			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
 
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "fir_filter_128_coefficients_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
+		}
+	}
+	else {
+		// Filter the channels with a 96 taps fir filters
+		cudaStatus = fir_filter_256_coefficients_GPU(filtered_signals_ptr, raw_data_GPU_ptr, filter_buffer_out_ptr, filter_buffer_in_ptr, filter_coefficients_CPU_ptr,
+			signals_channel_index_ptr, DcsHStatus.segment_size_ptr[0], u32LoopCount, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
+
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "fir_filter_256_coefficients_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+			ErrorHandler(0, errorString, ERROR_); // Pass 0 or a relevant error code instead of casting cudaGetErrorString's output.
+		}
+
+
+	}
 	if (DcsCfg.nb_phase_references == 0) {
 
 		// We don't do the fast correction, we should still remove a slope for the self-correction (TO DO)
@@ -907,7 +938,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 	}
 	else if (DcsCfg.nb_phase_references == 2) {
 
-		if (DcsCfg.do_phase_projection == 0) {
+		if (DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 0) {
 
 			// Fast phase correction with one of the references
 			cudaStatus = fast_phase_correction_GPU(IGMs_phase_corrected_ptr, optical_ref1_ptr, filtered_signals_ptr, filtered_signals_ptr + 1 * segment_size_per_channel,
@@ -920,7 +951,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			}
 
 		}
-		else if (DcsCfg.do_phase_projection == 1 || DcsCfg.spectro_mode == 1) {
+		else if (DcsCfg.do_phase_projection == 1 && DcsCfg.spectro_mode == 0 || DcsCfg.spectro_mode == 1) {
 
 			//Create the dfr reference 
 			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
@@ -954,8 +985,41 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			}
 
 		}
+		else if (DcsCfg.spectro_mode == 2)
+		{
+			//Create the dfr reference 
+			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
+			cudaStatus = compute_dfr_high_harmonic_angle(optical_ref_dfr_angle_ptr, optical_ref1_angle_ptr, optical_ref1_ptr, filtered_signals_ptr + 1 * segment_size_per_channel,
+				filtered_signals_ptr + 2 * segment_size_per_channel, filtered_signals_ptr + 3 * segment_size_per_channel, filtered_signals_ptr + 4 * segment_size_per_channel,
+				ref1_offset_buffer_in_ptr, ref1_offset_buffer_out_ptr, ref2_offset_buffer_in_ptr, ref2_offset_buffer_out_ptr, segment_size_per_channel, cuda_stream, cudaSuccess, DcsCfg, GpuCfg);
 
-		if (DcsCfg.do_phase_projection == 0 && DcsCfg.do_fast_resampling == 1) {
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "compute_dfr_high_harmonic_angle launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+
+			DcsHStatus.Unwrapdfr = true;
+			// Unwrap the phase of the dfr signal
+			cudaStatus = unwrap_phase_GPU(unwrapped_dfr_phase_ptr, optical_ref_dfr_angle_ptr, two_pi_count_ptr, blocks_edges_cumsum_ptr, increment_blocks_edges_ptr, segment_size_per_channel,
+				cuda_stream, cudaSuccess, DcsCfg, GpuCfg, &DcsHStatus, DcsDStatus); // (fast unwrap with 128 threads on 4090 GPU)
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "unwrap_phase_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+			// We do the fast phase correction at a nb_harmonic* CW_1 frequency
+			cudaStatus = fast_phase_projected_correction_GPU(IGMs_phase_corrected_ptr, filtered_signals_ptr, optical_ref1_angle_ptr, unwrapped_dfr_phase_ptr,
+				segment_size_per_channel, cuda_stream, cudaSuccess, DcsCfg, GpuCfg, DcsDStatus);
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "fast_phase_projected_correction_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+
+		}
+		if (DcsCfg.do_phase_projection == 0 && DcsCfg.do_fast_resampling == 1 && DcsCfg.spectro_mode == 0) {
 			//Create the dfr reference 
 			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
 			cudaStatus = compute_dfr_wrapped_angle_GPU(optical_ref_dfr_angle_ptr, optical_ref1_angle_ptr, optical_ref1_ptr, filtered_signals_ptr + 1 * segment_size_per_channel,
@@ -1017,12 +1081,32 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 				ErrorHandler(0, errorString, ERROR_);
 			}
 		}
+		else if (DcsCfg.spectro_mode == 2 && DcsCfg.do_fast_resampling == 1) {
+		
+
+			// Create linspace for resampling with the slope parameters estimated in the unwrap
+			int index_linspace = 0;
+			cudaStatus = linspace_GPU(uniform_grid_ptr, segment_size_per_channel, index_linspace, cuda_stream, cudaSuccess, DcsCfg, GpuCfg, DcsDStatus); // index_linspace = 0;
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "linspace_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+			// Do the resampling with two reference with a linear interpolation (try to remove the n_interval parameter, TO DO)
+			int index_linear_interp = 0;
+			linear_interpolation_GPU(IGMs_corrected_ptr, uniform_grid_ptr, IGMs_phase_corrected_ptr, unwrapped_dfr_phase_ptr, idx_nonuniform_to_uniform_grid_ptr,
+				segment_size_per_channel, segment_size_per_channel, index_linear_interp, GpuCfg.i32GpuThreads / 2, GpuCfg.i32GpuBlocks128, cuda_stream, cudaSuccess, DcsCfg); // We assume  GpuCfg.i32GpuThreads = 256
+
+			if (cudaStatus != cudaSuccess) {
+				snprintf(errorString, sizeof(errorString), "linear_interpolation_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
+				ErrorHandler(0, errorString, ERROR_);
+			}
+		}
 		else {
 			IGMs_corrected_ptr = IGMs_phase_corrected_ptr;
 		}
 	}
 	// We bring the IGM spectrum near 0 Hz for the self-correction (Better for xcorr and resampling)
-	if (DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 0 || DcsCfg.nb_phase_references == 0 || DcsCfg.nb_phase_references == 1) {
+	if (DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 0 || DcsCfg.nb_phase_references == 0 || DcsCfg.nb_phase_references == 1 || DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 2) {
 
 		int blocksRotate = (DcsHStatus.segment_size_ptr[0] + 128 - 1) / 128;
 		rotate_IGMs_phase_GPU(IGMs_corrected_ptr, DcsHStatus.IGMs_rotation_angle, DcsCfg.slope_self_correction, DcsHStatus.segment_size_ptr[0], DcsCfg.decimation_factor,
@@ -1060,8 +1144,6 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		ErrorHandler(0, errorString, ERROR_);
 	}
 
-
-
 	if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.FirstIGMFound == false) {
 
 		// For the first segment, we don't know where the first ZPD is, we do a xcorr over a wider range to find it
@@ -1074,6 +1156,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		}
 		if (u32LoopCount > 0) {
 			DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
+			DcsHStatus.NIGMsBlockTot += DcsHStatus.NIGMs_ptr[0];
 		}
 
 
@@ -1626,8 +1709,12 @@ void ThreadHandler::ReadandAllocateFilterCoefficients()
 		readBinaryFileC(DcsCfg.filters_coefficients_path, filter_coefficients_CPU_ptr, DcsCfg.nb_signals * MASK_LENGTH);
 	else if (DcsCfg.nb_coefficients_filters == 64)
 		readBinaryFileC(DcsCfg.filters_coefficients_path, filter_coefficients_CPU_ptr, DcsCfg.nb_signals * MASK_LENGTH64);
-	else
+	else if (DcsCfg.nb_coefficients_filters == 96)
 		readBinaryFileC(DcsCfg.filters_coefficients_path, filter_coefficients_CPU_ptr, DcsCfg.nb_signals * MASK_LENGTH96);
+	else if (DcsCfg.nb_coefficients_filters == 128)
+		readBinaryFileC(DcsCfg.filters_coefficients_path, filter_coefficients_CPU_ptr, DcsCfg.nb_signals * MASK_LENGTH128);
+	else
+		readBinaryFileC(DcsCfg.filters_coefficients_path, filter_coefficients_CPU_ptr, DcsCfg.nb_signals * MASK_LENGTH256);
 }
 
 void ThreadHandler::ReadandAllocateTemplateData()
@@ -2231,7 +2318,7 @@ void ThreadHandler::AllocateGPUBuffers()
 
 	}
 
-	else {
+	else if (DcsCfg.nb_coefficients_filters == 96) {
 		filter_coefficients_CPU_ptr = (cufftComplex*)malloc(DcsCfg.nb_signals * MASK_LENGTH96 * sizeof(double)); // We will copy the coefficients in constant memory in convolution kernel
 		if (!filter_coefficients_CPU_ptr) {
 			snprintf(errorString, sizeof(errorString), "Could not allocate memory for filter_coefficients_CPU_ptr buffer.\n");
@@ -2255,6 +2342,60 @@ void ThreadHandler::AllocateGPUBuffers()
 			ErrorHandler(cudaStatus, errorString, ERROR_);
 		}
 		cudaMemset(filter_buffer2_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH96 - 1) * sizeof(float));
+
+	}
+	else if (DcsCfg.nb_coefficients_filters == 128) {
+		filter_coefficients_CPU_ptr = (cufftComplex*)malloc(DcsCfg.nb_signals * MASK_LENGTH128 * sizeof(double)); // We will copy the coefficients in constant memory in convolution kernel
+		if (!filter_coefficients_CPU_ptr) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for filter_coefficients_CPU_ptr buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(filter_coefficients_CPU_ptr, 0, DcsCfg.nb_signals * MASK_LENGTH128 * sizeof(double));
+		}
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer1_ptr, DcsCfg.nb_channels * (MASK_LENGTH128 - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer1_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH128 - 1) * sizeof(float));
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer2_ptr, DcsCfg.nb_channels * (MASK_LENGTH128 - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer2_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH128 - 1) * sizeof(float));
+
+	}
+	else {
+
+		filter_coefficients_CPU_ptr = (cufftComplex*)malloc(DcsCfg.nb_signals * MASK_LENGTH256 * sizeof(double)); // We will copy the coefficients in constant memory in convolution kernel
+		if (!filter_coefficients_CPU_ptr) {
+			snprintf(errorString, sizeof(errorString), "Could not allocate memory for filter_coefficients_CPU_ptr buffer.\n");
+			ErrorHandler(-1, errorString, ERROR_); // Assuming -1 is a generic error code for memory allocation failure
+		}
+		else {
+			// Zero out the allocated memory
+			memset(filter_coefficients_CPU_ptr, 0, DcsCfg.nb_signals * MASK_LENGTH256 * sizeof(double));
+		}
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer1_ptr, DcsCfg.nb_channels * (MASK_LENGTH256 - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer1_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer1_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH256 - 1) * sizeof(float));
+
+		cudaStatus = cudaMalloc((void**)&filter_buffer2_ptr, DcsCfg.nb_channels * (MASK_LENGTH256 - 1) * sizeof(float));
+		if (cudaStatus != cudaSuccess) {
+			snprintf(errorString, sizeof(errorString), "Failed to allocate GPU memory for filter_buffer2_ptr: %s\n", cudaGetErrorString(cudaStatus));
+			ErrorHandler(cudaStatus, errorString, ERROR_);
+		}
+		cudaMemset(filter_buffer2_ptr, 0, DcsCfg.nb_channels * (MASK_LENGTH256 - 1) * sizeof(float));
+
 
 	}
 	cudaStatus = cudaMalloc((void**)&signals_channel_index_ptr, DcsCfg.nb_signals * sizeof(int));
@@ -3651,7 +3792,7 @@ void ThreadHandler::LogStats(HANDLE fileHandle, unsigned int fileCount, unsigned
 	unsigned int NumberOfIGMs, unsigned int NumberOfIGMsAveraged,
 	unsigned int NumberOfIGMsTotal, unsigned int NumberOfIGMsAveragedTotal,
 	float PercentageIGMsAveraged, bool FindingFirstIGM, bool NotEnoughIGMs, unsigned int path_length_m,
-	double dfr) {
+	double dfr, char* measurement_name) {
 	DWORD dwBytesWritten = 0;
 	char buffer[1024]; // Adjust size as needed
 	int ErrorCode = 0;
@@ -3659,7 +3800,7 @@ void ThreadHandler::LogStats(HANDLE fileHandle, unsigned int fileCount, unsigned
 	if (u32LoopCount == 0) {
 		// Header line for CSV
 		sprintf_s(buffer, sizeof(buffer),
-			"StartTimeBuffer, FileCount, BufferCount,# IGMs,# IGMs averaged,# IGMs total,# IGMs averaged total,%% IGMs averaged, Error Code, Path Length, Dfr\n");
+			"StartTimeBuffer, FileCount, BufferCount,# IGMs,# IGMs averaged,# IGMs total,# IGMs averaged total,%% IGMs averaged, Error Code, Path Length, Dfrm Measurement name\n");
 		WriteFile(fileHandle, buffer, strlen(buffer), &dwBytesWritten, NULL);
 	}
 	else {
@@ -3673,9 +3814,9 @@ void ThreadHandler::LogStats(HANDLE fileHandle, unsigned int fileCount, unsigned
 		}
 		// Data line for CSV
 		sprintf_s(buffer, sizeof(buffer), // Formatting of date without ms in excel
-			"%s, %u,%u,%u,%u,%u,%u,%.2f, %d, %u, %.6f\n", CurrentStartTimeBuffer, fileCount,
+			"%s, %u,%u,%u,%u,%u,%u,%.2f, %d, %u, %.6f, %s\n", CurrentStartTimeBuffer, fileCount,
 			u32LoopCount, NumberOfIGMs, NumberOfIGMsAveraged,
-			NumberOfIGMsTotal, NumberOfIGMsAveragedTotal, PercentageIGMsAveraged, ErrorCode, path_length_m, dfr);
+			NumberOfIGMsTotal, NumberOfIGMsAveragedTotal, PercentageIGMsAveraged, ErrorCode, path_length_m, dfr, measurement_name);
 		WriteFile(fileHandle, buffer, strlen(buffer), &dwBytesWritten, NULL);
 
 	}
@@ -3781,9 +3922,25 @@ void ThreadHandler::UpdateProgress(int32_t u32LoopCount)
 		dTotal = 1.0 * CardTotalData * DcsCfg.nb_bytes_per_sample / 1000000.0;		// Mega bytes
 		if (u32LoopCount > 3)
 		{
-			printf("\rLoopCount: %d, Total: %0.2f MB, Rate: %6.2f MB/s, Elapsed time: %u:%02u:%02u, dfr: %.5f Hz, BuffAvg: %.1f%%%-5s", u32LoopCount, dTotal, dRate, (unsigned int)h, (unsigned int)m, (unsigned int)s,
-				static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor, 100 * static_cast<double>(DcsHStatus.NIGMsAvgTot) / static_cast<double>(DcsHStatus.NIGMsTot), "");
+			//printf("\rCount: %d, Total: %0.2f MB, Rate: %6.2f MB/s, Time: %u:%02u:%02u, dfr: %.4f Hz,AvgBatch: %.1f%%%, AvgTot: %.1f%%%-5s", u32LoopCount, dTotal, dRate, (unsigned int)h, (unsigned int)m, (unsigned int)s,
+			//	static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor, DcsHStatus.percentageAvgBlock, 100 * static_cast<double>(DcsHStatus.NIGMsAvgTot) / static_cast<double>(DcsHStatus.NIGMsTot), "");
+			//fflush(stdout);
+
+			  // Print the first part
+			printf("\rLoopCount: %d, Total: %0.2f MB, Rate: %6.2f MB/s, Elapsed time: %u:%02u:%02u", u32LoopCount, dTotal, dRate, (unsigned int)h, (unsigned int)m, (unsigned int)s);
 			fflush(stdout);
+
+			// Move the cursor to the next line
+			printf("\033[K\n");
+
+			// Print the second part
+			printf("Batch number: %d, Dfr: %.5f Hz,AvgBatch: %.1f%%%, AvgTot: %.1f%%%-5s", fileCount, static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor, DcsHStatus.percentageAvgBlock,
+				100 * static_cast<double>(DcsHStatus.NIGMsAvgTot) / static_cast<double>(DcsHStatus.NIGMsTot), "");
+			fflush(stdout);
+
+			// Move the cursor up to the previous line
+			printf("\033[F");
+
 
 		}
 

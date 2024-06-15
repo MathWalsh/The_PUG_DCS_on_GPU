@@ -49,6 +49,8 @@
 #define MASK_LENGTH 32											// This is the length of the filters ?
 #define MASK_LENGTH64 64
 #define MASK_LENGTH96 96
+#define MASK_LENGTH128 128
+#define MASK_LENGTH256 256
 //#define MASK_LENGTH 16											// This is the length of the filters ?
 #define _CRT_SECURE_NO_WARNINGS
 #define VIRTUAL_MEMORY_THRESHOLD		90		// Limit (Percentage of the current amount of virtual memory available) to output a warning
@@ -293,7 +295,7 @@ public:														// Constructor
 		unsigned int NumberOfIGMs, unsigned int NumberOfIGMsAveraged,
 		unsigned int NumberOfIGMsTotal, unsigned int NumberOfIGMsAveragedTotal,
 		float PercentageIGMsAveraged, bool FindingFirstIGM, bool NotEnoughIGMs, unsigned int path_length_m,
-		double dfr);
+		double dfr, char* measurement_name);
 
 	void		setStartTimeBuffer(int32_t u32LoopCount);
 	void		SetupCounter();

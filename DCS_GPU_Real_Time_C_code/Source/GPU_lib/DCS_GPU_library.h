@@ -184,7 +184,62 @@ extern "C" cudaError_t fir_filter_96_coefficients_multi_buffer_GPU(cufftComplex 
 	cufftComplex * filter_coefficients_CPU, int* signals_channel_index, int sizeIn, int LoopCount, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
 #endif
 
+/***** 128 taps ******/
 
+#define MASK_LENGTH_TOT128 128
+
+#ifdef __cplusplus
+/**
+ * Perform a FIR filter operation on the GPU.
+ *
+ * These functions wrap the CUDA kernel call to process input signals through a FIR filter
+ * It manages memory transfers to the GPU and kernel execution settings.
+ *
+ * @param signals_out Output buffer for the filtered signals.
+ * @param signals_in Input buffer containing the raw signals.
+ * @param buffer_out Output buffer for buffer edge handling.
+ * @param buffer_in Input buffer for buffer edge handling.
+ * @param filter_coefficients_CPU Host-side array of filter coefficients. Only used on the first loop to populate constant memory.
+ * @param signals_channel_index Index array for channel processing.
+ * @param sizeIn Size of the input signal array.
+ * @param LoopCount Current iteration count, controls mask population.
+ * @param streamId CUDA stream for asynchronous operation.
+ * @param cudaStatus Status of CUDA operations, checked after kernel launch.
+ * @param DcsCfg Configuration structure for DCS operation specifics.
+ * @param GpuCfg Configuration structure for GPU execution parameters.
+ * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
+ */
+extern "C" cudaError_t fir_filter_128_coefficients_GPU(cufftComplex * signals_out, short* signals_in, float* buffer_out, float* buffer_in, cufftComplex * filter_coefficients_CPU, int* signals_channel_index,
+	int sizeIn, int LoopCount, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
+#endif
+
+
+#define MASK_LENGTH_TOT256 256
+
+#ifdef __cplusplus
+/**
+ * Perform a FIR filter operation on the GPU.
+ *
+ * These functions wrap the CUDA kernel call to process input signals through a FIR filter
+ * It manages memory transfers to the GPU and kernel execution settings.
+ *
+ * @param signals_out Output buffer for the filtered signals.
+ * @param signals_in Input buffer containing the raw signals.
+ * @param buffer_out Output buffer for buffer edge handling.
+ * @param buffer_in Input buffer for buffer edge handling.
+ * @param filter_coefficients_CPU Host-side array of filter coefficients. Only used on the first loop to populate constant memory.
+ * @param signals_channel_index Index array for channel processing.
+ * @param sizeIn Size of the input signal array.
+ * @param LoopCount Current iteration count, controls mask population.
+ * @param streamId CUDA stream for asynchronous operation.
+ * @param cudaStatus Status of CUDA operations, checked after kernel launch.
+ * @param DcsCfg Configuration structure for DCS operation specifics.
+ * @param GpuCfg Configuration structure for GPU execution parameters.
+ * @return cudaError_t status of the function's execution, including memory transfer and kernel launch.
+ */
+extern "C" cudaError_t fir_filter_256_coefficients_GPU(cufftComplex * signals_out, short* signals_in, float* buffer_out, float* buffer_in, cufftComplex * filter_coefficients_CPU, int* signals_channel_index,
+	int sizeIn, int LoopCount, cudaStream_t streamId, cudaError_t cudaStatus, DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
+#endif
 
 
 #ifdef __cplusplus
@@ -260,6 +315,43 @@ extern "C" cudaError_t compute_dfr_wrapped_angle_multi_buffer_GPU(float* optical
 #endif
 
 #ifdef __cplusplus
+
+#ifdef __cplusplus
+/** compute_dfr_high_harmonic_angle
+*
+ * Computes dfr wrapped angle on the GPU for high harmonic.
+ *
+ * Wraps a CUDA kernel to compute the repetition frequency difference (dfr) wrapped angle
+ * based on optical beat signals. This function handles memory transfers and kernel execution
+ * configurations, computing the angles for dfr variations between two optical combs.
+ *
+ * @param optical_ref_dfr_angle Output buffer for the dfr reference angles.
+ * @param optical_ref1_angle Optional output buffer for reference 1 angles, used in phase projection.
+ * @param optical_ref1_in Input buffer for the first optical reference.
+ * @param optical_beat1_in Input buffer for the first optical beat signal.
+ * @param optical_beat2_in Input buffer for the second optical beat signal.
+ * @param optical_beat3_in Input buffer for the third optical beat signal.
+ * @param optical_beat4_in Input buffer for the fourth optical beat signal.
+ * @param ref1_buffer_in Input buffer for storing offset ref1 values.
+ * @param ref1_buffer_out Output buffer for storing offset ref1 values.
+ * @param ref2_buffer_in Input buffer for storing offset ref2 values.
+ * @param ref2_buffer_out Output buffer for storing offset ref2 values.
+ * @param sizeIn Size of the input arrays.
+ * @param streamId CUDA stream for asynchronous operation.
+ * @param cudaStatus Status of CUDA operations, checked after kernel launch.
+ * @param DcsCfg Configuration structure detailing operation specifics.
+ * @param GpuCfg Configuration structure detailing GPU execution parameters.
+ * @return cudaError_t The status of the function's execution, including memory transfer and kernel launch.
+ */
+extern "C" cudaError_t compute_dfr_high_harmonic_angle(float* optical_ref_dfr_angle, float* optical_ref1_angle, cufftComplex * optical_ref1_in, cufftComplex * optical_beat1_in,
+	cufftComplex * optical_beat2_in, cufftComplex * optical_beat3_in, cufftComplex * optical_beat4_in, cufftComplex * ref1_buffer_in, cufftComplex * ref1_buffer_out,
+	cufftComplex * ref2_buffer_in, cufftComplex * ref2_buffer_out, int sizeIn, cudaStream_t streamId, cudaError_t cudaStatus,
+	DCSCONFIG DcsCfg, GPUCONFIG GpuCfg);
+#endif
+
+
+
+
 
 /** unwrap_phase_GPU
 *

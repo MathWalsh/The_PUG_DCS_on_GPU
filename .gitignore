@@ -374,3 +374,8 @@ FodyWeavers.xsd
 /python_interface/Xcorr_records/data_xcorr_2024-05-09_10-43-37.bin
 /python_interface/Xcorr_records
 /DCS_GPU_Real_Time_C_code/temp
+/Matlab_computeParamsScripts/apriori_params.json
+/Matlab_computeParamsScripts/computed_params.json
+/Matlab_computeParamsScripts/gageCard_params.json
+/Matlab_computeParamsScripts/selfCorrectIGMs_JGE_SJFG_sansHilbert_vAlex.m
+/Matlab_computeParamsScripts/verify_correction.m
