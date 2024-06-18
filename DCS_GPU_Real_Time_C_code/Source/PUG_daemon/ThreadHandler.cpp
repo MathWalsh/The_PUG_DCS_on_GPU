@@ -607,6 +607,19 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		snprintf(errorString, sizeof(errorString), "GPU error : %s\n", cudaGetErrorString(cudaStatus));
 		ErrorHandler(0, errorString, ERROR_);
 	}
+
+
+	if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.FirstIGMFound == false && u32LoopCount > 0) {
+		// We transfer the results to the CPU for the next buffer
+		cudaMemcpy(DcsHStatus.idxStartFirstZPD_ptr, index_mid_segments_ptr, sizeof(double), cudaMemcpyDeviceToHost);
+		// We transfer the results to the CPU for the next buffer
+		cudaMemcpy(DcsHStatus.max_xcorr_first_IGM_ptr, DcsDStatus.max_val_blocks_ptr, sizeof(float), cudaMemcpyDeviceToHost);
+		// We transfer the results to the CPU for the next buffer
+		cudaMemcpy(DcsHStatus.ptsPerIGM_first_IGMs_ptr, DcsDStatus.ptsPerIGM_first_IGMs_ptr, sizeof(double), cudaMemcpyDeviceToHost);
+
+	}
+
+
 	// Can probably do better than multiple cudaMemcpy....
 	if (u32LoopCount > 1) {
 		// Number of points to remove from this buffer
@@ -756,6 +769,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		DcsHStatus.NIGMsBlock = 0;
 		DcsHStatus.NIGMsBlockTot = 0;
 	}
+
 	// If we found the first IGM with good signal
 	if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.max_xcorr_first_IGM_ptr[0] > DcsCfg.xcorr_threshold_low) {
 		DcsHStatus.FirstIGMFound = true;
@@ -1062,7 +1076,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 				ErrorHandler(0, errorString, ERROR_);
 			}
 		}
-		else if (DcsCfg.do_phase_projection == 1 && DcsCfg.do_fast_resampling == 1) {
+		else if (DcsCfg.do_phase_projection == 1 && DcsCfg.do_fast_resampling == 1 && DcsCfg.spectro_mode == 0) {
 
 			// Create linspace for resampling with the slope parameters estimated in the unwrap
 			int index_linspace = 0;
@@ -1286,7 +1300,7 @@ void ThreadHandler::ScheduleCardTransferWithCurrentBuffer(bool choice)
 	else if (processing_choice == ProcessingFromDisk)
 	{
 		if (CardTotalData >= DcsCfg.nb_pts_post_processing_64bit) {
-			std::cout << "\Processing from disk complete\n";
+			std::cout << "\nProcessing from disk complete\n";
 			acquisitionCompleteWithSuccess = true;
 		}
 		else

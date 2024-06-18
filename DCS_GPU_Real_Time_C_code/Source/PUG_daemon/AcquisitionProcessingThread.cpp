@@ -63,7 +63,7 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 		// Check if the timeout has been reached
 		auto currentTime = std::chrono::steady_clock::now();
 		if (currentTime - startTime >= timeout) {
-			std::cout << "Timeout reached. Exiting processing thread.\n";
+			std::cout << "\nTimeout reached. Exiting processing thread.\n";
 			threadControl.ThreadError = 1;
 			handler.setReadyToProcess(false);
 			return;
@@ -121,7 +121,7 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 			}
 			catch (std::exception& except)
 			{
-				std::cout << "Error in thread processing loop: " << except.what() << "\n";
+				std::cout << "\nError in thread processing loop: " << except.what() << "\n";
 				threadControl.ThreadError = 1;
 				handler.setReadyToProcess(false);
 				return;
@@ -130,7 +130,7 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 		// We check if there was no error during the processing
 		if (threadControl.ThreadError == 0)
 		{
-			printf("\nEnd u32LoopCount: %d", u32LoopCount);
+			printf("\nEnd u32LoopCount: %d\n", u32LoopCount);
 			/**Acq done or aborted**/
 			std::cout << "\nOut of the acq loop !!!\n";
 			std::cout << "\nProcessing final block\n";

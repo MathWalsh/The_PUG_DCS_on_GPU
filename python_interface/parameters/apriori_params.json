@@ -30,7 +30,7 @@
 		3,
 		4
 	],
-	"decimation_factor": 2,
+	"decimation_factor": 1,
 	"save_to_float": 1,
 	"max_delay_xcorr": 40,
 	"nb_coefficients_filters": 96,

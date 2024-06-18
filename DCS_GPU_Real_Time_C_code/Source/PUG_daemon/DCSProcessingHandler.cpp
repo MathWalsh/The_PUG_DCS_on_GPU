@@ -411,7 +411,7 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
         if (cJSON_IsNumber(item)) {
             DcsCfg.save_data_to_file = item->valueint;
         }
-
+        DcsCfg.nb_pts_interval_interpolation = 20;
         /*item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "do_weighted_average");
         if (cJSON_IsNumber(item)) {
             DcsCfg.do_weighted_average = item->valueint;
