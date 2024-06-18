@@ -344,7 +344,7 @@ class mainWindow(QtWidgets.QMainWindow):
          this is a short raw acq with no processing
          that is saved and allows computing DCS parameters """
         
-        self.responder.user_message('pre-acq Button pressed')
+        #self.responder.user_message('pre-acq Button pressed')
         
         # Remember default values
         #default_stylesheet = self.preAcquisition_button.styleSheet()
@@ -357,10 +357,11 @@ class mainWindow(QtWidgets.QMainWindow):
         """User asked to compute the DCS params 
          only possible is a pre-acqu is available """
          
-        self.responder.user_message('compute params Button pressed')
+        #self.responder.user_message('compute params Button pressed')
         #default_stylesheet = self.computeParameters_button.styleSheet()
 
-        self.responder.TCP.send_nodata(TCP_command.compute_params)              
+        self.responder.computeParameters()
+        #self.responder.TCP.send_nodata(TCP_command.compute_params)              
             #self.computeParameters_button.setStyleSheet(default_stylesheet)   
         
     def ACQ_GPU_buttonPressed(self):
@@ -380,7 +381,7 @@ class mainWindow(QtWidgets.QMainWindow):
             """User asked start real time raw data acquisition  
             saves raw data to disk"""
                    
-            self.responder.user_message('raw Button pressed')
+            #self.responder.user_message('raw Button pressed')
             if(self.responder.TCP.is_connected()):
                 if(self.ACQ_GPU_button.text() == "STOP ACQ" or  self.rawAcquisition_button.text() == "STOP ACQ"):
                     self.responder.TCP.send_nodata(TCP_command.stop_ACQ)
@@ -697,7 +698,7 @@ class mainWindow(QtWidgets.QMainWindow):
         
         numEl = len(float32_values)
         
-        if(numEl % 3 !=0):
+        if(numEl % 3 !=0 or numEl==0):
             self.responder.user_message('XCorr data size is not a multiple of 3')
         else:
             numEl = round(numEl/3);

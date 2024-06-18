@@ -28,6 +28,7 @@ supported commands by the PUG
 "StartCoadd,#\n"                    # Start saving the co-added IGMS for chan #
 "StopCoadd",#\n"                    # Stop saving co-added IGMs for than #
 "newIGMpathDelay,#,120e-9\n"        # Set the delay between IGM and refs for chan # to 120e-9 s
+"newIGMpathDelay_m,#,66\n"        # Set the delay between IGM and refs for chan # to 66m
 "newGroupName,#,HelloWorld"         # Set the measurement name for chan # to HelloWorld
 "connectTCP,#\n"                    # Re-connect to C app, potentially disconnecting firsts
 
@@ -38,12 +39,13 @@ The changes in delay and measurement names are saved in the measurement log file
 talker = UDPTalker(start_delimiter="", stop_delimiter="\n",ip="127.0.0.1", port=55554)
 
 #talker.sendDatagram("connectTCP,1")
-talker.sendDatagram("newIGMpathDelay,1,420e-9")
+#talker.sendDatagram("newIGMpathDelay,1,420e-9")
+talker.sendDatagram("newIGMpathDelay_m,1,66")
 #talker.sendDatagram("doPreAcquisition,1")
-talker.sendDatagram("StartCoadd,1")
+#talker.sendDatagram("StartCoadd,1")
 talker.sendDatagram("StopCoadd,1")
 #talker.sendDatagram("newNumberCoaddCycles,1,1000")
-#talker.sendDatagram("newGroupName,1,Patate")
+talker.sendDatagram("newGroupName,1,Patate")
 
 
 
