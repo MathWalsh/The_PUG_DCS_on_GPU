@@ -531,6 +531,25 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
         if (cJSON_IsString(item) && (item->valuestring != NULL)) {
             DcsCfg.measurement_name = _strdup(item->valuestring);
         }
+
+        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "real_time_display_refresh_rate_ms");
+        if (cJSON_IsNumber(item)) {
+            DcsCfg.real_time_display_refresh_rate_ms = item->valueint;
+
+            if (DcsCfg.real_time_display_refresh_rate_ms < 50) { // To minimize lag on GUI
+                DcsCfg.real_time_display_refresh_rate_ms = 50;
+            }
+        }
+
+        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "console_status_update_refresh_rate_s");
+        if (cJSON_IsNumber(item)) {
+            DcsCfg.console_status_update_refresh_rate_s = item->valueint;
+
+            if (DcsCfg.console_status_update_refresh_rate_s < 600) { // To minimize spam
+                DcsCfg.console_status_update_refresh_rate_s = 600;
+            }
+        }
+
     }
 }
 

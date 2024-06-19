@@ -121,6 +121,9 @@ private:
 	uint32_t						batchCounter = 0;
 	uint32_t						batchCounterSendDataMain = 1;
 	float							speed_of_light = 299792458; // speed of light m / s	
+
+	uint64_t						console_update_counter = 0; // s
+	
 	std::ifstream inputfile; // input file for processing from disk
 	// CPU buffers
 
@@ -294,8 +297,8 @@ public:														// Constructor
 	void		LogStats(HANDLE fileHandle, unsigned int fileCount, unsigned int u32LoopCount,
 		unsigned int NumberOfIGMs, unsigned int NumberOfIGMsAveraged,
 		unsigned int NumberOfIGMsTotal, unsigned int NumberOfIGMsAveragedTotal,
-		float PercentageIGMsAveraged, bool FindingFirstIGM, bool NotEnoughIGMs, unsigned int path_length_m,
-		double dfr, char* measurement_name);
+		float PercentageIGMsAveraged, bool UnwrapError, bool NotEnoughIGMs, unsigned int path_length_m,
+		double dfr, char* measurement_name, int SaveToFile);
 
 	void		setStartTimeBuffer(int32_t u32LoopCount);
 	void		SetupCounter();

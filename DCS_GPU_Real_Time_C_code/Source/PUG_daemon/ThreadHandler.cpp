@@ -204,7 +204,8 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 		LogStats(fileHandle_log_DCS_Stats, fileCount, batchCounter, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
 			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], 0,
-			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor), DcsCfg.measurement_name);
+			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor), 
+			DcsCfg.measurement_name, DcsCfg.save_data_to_file);
 
 	}
 	if (batchCounter > 1) {
@@ -212,7 +213,8 @@ void ThreadHandler::FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount)
 		LogStats(fileHandle_log_DCS_Stats, fileCount, batchCounter - 1, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
 			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], static_cast<int>(delay),
-			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor), DcsCfg.measurement_name);
+			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor), 
+			DcsCfg.measurement_name, DcsCfg.save_data_to_file);
 	}
 
 
@@ -681,6 +683,8 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 
 		}
 
+		if (DcsCfg.save_data_to_file)
+		{
 		DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
 		DcsHStatus.NIGMsBlockTot += DcsHStatus.NIGMs_ptr[0];
 		if (DcsHStatus.UnwrapError_ptr[0] == false) {
@@ -692,74 +696,83 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			if (cudaStatus != cudaSuccess)
 				ErrorHandler(0, "compute_SelfCorrection_GPU launch failed", ERROR_);
 
-			// Find mean IGM of the self-corrected train of IGMs
-			// Function is slow, can we make it faster?, can we decimate here or before?
-			DcsHStatus.NBufferAvg += 1;
-			//DcsHStatus.NIGMsAvgTot += DcsHStatus.NIGMs_ptr[1];
-			DcsHStatus.NIGMsAvgTot += DcsHStatus.NIGMs_ptr[2];
-			//DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0]; // Won't count skipped buffer
-			if ((DcsHStatus.NBufferAvg) % DcsCfg.nb_buffer_average == 0) {
-				DcsHStatus.SaveMeanIGM = true;
-				DcsHStatus.PlotMeanIGM = true;
-			}
-			// Coherent averaging of 1 or multiple buffers
-			compute_MeanIGM_GPU(IGM_meanFloatOut_ptr, IGM_meanIntOut_ptr, IGM_mean_ptr, IGMs_selfcorrection_out_ptr, cuda_stream, cudaSuccess, DcsCfg, &DcsHStatus, DcsDStatus);
 
-			if (cudaStatus != cudaSuccess) {
-				snprintf(errorString, sizeof(errorString), "Compute_MeanIGM_GPU launch failed : %s\n", cudaGetErrorString(cudaStatus));
-				ErrorHandler(0, errorString, ERROR_);
-			}
-		
-			// Transfering data to be saved
-			if (DcsHStatus.SaveMeanIGM) {
-				/*DcsHStatus.NIGMsBlock = 0;
-				DcsHStatus.NIGMsBlockTot = 0;*/
-				DcsHStatus.NBufferAvg = 0;
-				DcsHStatus.max_xcorr_sum_ptr[0] = 0.0f;
-				cudaMemset(DcsDStatus.max_xcorr_sum_ptr, 0, sizeof(double));
-				//DcsHStatus.NptsSave = DcsCfg.ptsPerIGM / DcsCfg.decimation_factor;
-				DcsHStatus.NptsSave = DcsCfg.ptsPerIGM;
-				//DcsHStatus.NptsSave =segment_size_per_channel;
-				//DcsHStatus.NptsSave = DcsHStatus.segment_size_ptr[2];
-				//DcsHStatus.NptsSave = DcsHStatus.NIGMs_ptr[0] * DcsCfg.ptsPerIGM;
-				//DcsHStatus.NptsSave = DcsHStatus.segment_size_ptr[1];
-				if (DcsCfg.save_to_float == 1) {
-
-					if (u32LoopCount % 2 == 0) { // for even count (0,2,4...)
-						cudaMemcpyAsync(IGMsOutFloat1, IGM_meanFloatOut_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
-					}
-					else { // for odd count (1,3,5,...)
-						cudaMemcpyAsync(IGMsOutFloat2, IGM_meanFloatOut_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
-
-					}
-					//if (u32LoopCount % 2 == 0) { // for even count (0,2,4...)
-					//	cudaMemcpyAsync(IGMsOutFloat1, IGMs_selfcorrection_out_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
-					//}
-					//else { // for odd count (1,3,5,...)
-					//	cudaMemcpyAsync(IGMsOutFloat2, IGMs_selfcorrection_out_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
-
-					//}
+				// Find mean IGM of the self-corrected train of IGMs
+				// Function is slow, can we make it faster?, can we decimate here or before?
+				DcsHStatus.NBufferAvg += 1;
+				//DcsHStatus.NIGMsAvgTot += DcsHStatus.NIGMs_ptr[1];
+				DcsHStatus.NIGMsAvgTot += DcsHStatus.NIGMs_ptr[2];
+				//DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0]; // Won't count skipped buffer
+				if ((DcsHStatus.NBufferAvg) % DcsCfg.nb_buffer_average == 0) {
+					DcsHStatus.SaveMeanIGM = true;
+					DcsHStatus.PlotMeanIGM = true;
 				}
-				else {
-					if ((u32LoopCount) % 2 == 0) { // for even count (0,2,4...)
-						cudaMemcpyAsync(IGMsOutInt1, IGM_meanIntOut_ptr, DcsHStatus.NptsSave * sizeof(int16Complex), cudaMemcpyDeviceToHost, cuda_stream);
-					}
-					else { // for odd count (1,3,5,...)
-						cudaMemcpyAsync(IGMsOutInt2, IGM_meanIntOut_ptr, DcsHStatus.NptsSave * sizeof(int16Complex), cudaMemcpyDeviceToHost, cuda_stream);
-					}
+				// Coherent averaging of 1 or multiple buffers
+				compute_MeanIGM_GPU(IGM_meanFloatOut_ptr, IGM_meanIntOut_ptr, IGM_mean_ptr, IGMs_selfcorrection_out_ptr, cuda_stream, cudaSuccess, DcsCfg, &DcsHStatus, DcsDStatus);
 
-				}
-
-				cudaStatus = cudaGetLastError();
 				if (cudaStatus != cudaSuccess) {
-					snprintf(errorString, sizeof(errorString), "cudaMemcpyAsync error IGMMean : %s\n", cudaGetErrorString(cudaStatus));
+					snprintf(errorString, sizeof(errorString), "Compute_MeanIGM_GPU launch failed : %s\n", cudaGetErrorString(cudaStatus));
 					ErrorHandler(0, errorString, ERROR_);
 				}
 
+				// Transfering data to be saved
+				if (DcsHStatus.SaveMeanIGM) {
+					/*DcsHStatus.NIGMsBlock = 0;
+					DcsHStatus.NIGMsBlockTot = 0;*/
+					DcsHStatus.NBufferAvg = 0;
+					DcsHStatus.max_xcorr_sum_ptr[0] = 0.0f;
+					cudaMemset(DcsDStatus.max_xcorr_sum_ptr, 0, sizeof(double));
+					//DcsHStatus.NptsSave = DcsCfg.ptsPerIGM / DcsCfg.decimation_factor;
+					DcsHStatus.NptsSave = DcsCfg.ptsPerIGM;
+					//DcsHStatus.NptsSave =segment_size_per_channel;
+					//DcsHStatus.NptsSave = DcsHStatus.segment_size_ptr[2];
+					//DcsHStatus.NptsSave = DcsHStatus.NIGMs_ptr[0] * DcsCfg.ptsPerIGM;
+					//DcsHStatus.NptsSave = DcsHStatus.segment_size_ptr[1];
+					if (DcsCfg.save_to_float == 1) {
+
+						if (u32LoopCount % 2 == 0) { // for even count (0,2,4...)
+							cudaMemcpyAsync(IGMsOutFloat1, IGM_meanFloatOut_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
+						}
+						else { // for odd count (1,3,5,...)
+							cudaMemcpyAsync(IGMsOutFloat2, IGM_meanFloatOut_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
+
+						}
+						//if (u32LoopCount % 2 == 0) { // for even count (0,2,4...)
+						//	cudaMemcpyAsync(IGMsOutFloat1, IGMs_selfcorrection_out_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
+						//}
+						//else { // for odd count (1,3,5,...)
+						//	cudaMemcpyAsync(IGMsOutFloat2, IGMs_selfcorrection_out_ptr, DcsHStatus.NptsSave * sizeof(cufftComplex), cudaMemcpyDeviceToHost, cuda_stream);
+
+						//}
+					}
+					else {
+						if ((u32LoopCount) % 2 == 0) { // for even count (0,2,4...)
+							cudaMemcpyAsync(IGMsOutInt1, IGM_meanIntOut_ptr, DcsHStatus.NptsSave * sizeof(int16Complex), cudaMemcpyDeviceToHost, cuda_stream);
+						}
+						else { // for odd count (1,3,5,...)
+							cudaMemcpyAsync(IGMsOutInt2, IGM_meanIntOut_ptr, DcsHStatus.NptsSave * sizeof(int16Complex), cudaMemcpyDeviceToHost, cuda_stream);
+						}
+
+					}
+
+					cudaStatus = cudaGetLastError();
+					if (cudaStatus != cudaSuccess) {
+						snprintf(errorString, sizeof(errorString), "cudaMemcpyAsync error IGMMean : %s\n", cudaGetErrorString(cudaStatus));
+						ErrorHandler(0, errorString, ERROR_);
+					}
+
+
+				}
 
 			}
-
-
+			else { // We are not saving the IGMs, si we reset variables
+				DcsHStatus.SaveMeanIGM = false;
+				DcsHStatus.NBufferAvg = 0;
+				DcsHStatus.max_xcorr_sum_ptr[0] = 0.0f;
+				cudaMemset(DcsDStatus.max_xcorr_sum_ptr, 0, sizeof(double));
+				DcsHStatus.NIGMsBlock = 0;
+				DcsHStatus.NIGMsBlockTot = 0;
+			}
 		}
 	}
 	if (DcsHStatus.NIGMsBlockTot > 0)
@@ -782,16 +795,18 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		u32StartTimeDisplaySignals = GetTickCount64();
 		LogStats(fileHandle_log_DCS_Stats, fileCount, u32LoopCount, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
-			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], 0,
-			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor), DcsCfg.measurement_name);
+			DcsHStatus.UnwrapError_ptr[0], DcsHStatus.NotEnoughIGMs[0], 0,
+			static_cast<float>(DcsCfg.sampling_rate_Hz / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor),
+			DcsCfg.measurement_name, DcsCfg.save_data_to_file);
 
 	}
 	if (u32LoopCount > 1) {
 		float delay = round(static_cast<float>(DcsCfg.references_offset_pts) * speed_of_light / static_cast<float>(DcsCfg.sampling_rate_Hz));
 		LogStats(fileHandle_log_DCS_Stats, fileCount, u32LoopCount - 1, DcsHStatus.NIGMs_ptr[0], DcsHStatus.NIGMs_ptr[2], DcsHStatus.NIGMsTot,
 			DcsHStatus.NIGMsAvgTot, 100 * static_cast<float>(DcsHStatus.NIGMsAvgTot) / static_cast<float>(DcsHStatus.NIGMsTot),
-			DcsHStatus.FindFirstIGM[0], DcsHStatus.NotEnoughIGMs[0], static_cast<int>(delay),
-			static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / static_cast<double>(DcsCfg.decimation_factor), DcsCfg.measurement_name);
+			DcsHStatus.UnwrapError_ptr[0], DcsHStatus.NotEnoughIGMs[0], static_cast<int>(delay),
+			static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / static_cast<double>(DcsCfg.decimation_factor), 
+			DcsCfg.measurement_name, DcsCfg.save_data_to_file);
 	}
 	// Reset parameters for first part of correction
 	// Use correct data buffer for convolution depending on the u32LoopCount
@@ -1168,7 +1183,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			snprintf(errorString, sizeof(errorString), "find_first_IGMs_ZPD_GPU launch failed: %s", cudaGetErrorString(cudaStatus));
 			ErrorHandler(0, errorString, ERROR_);
 		}
-		if (u32LoopCount > 0) {
+		if (u32LoopCount > 0 && DcsCfg.save_data_to_file) {
 			DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
 			DcsHStatus.NIGMsBlockTot += DcsHStatus.NIGMs_ptr[0];
 		}
@@ -3602,7 +3617,7 @@ void ThreadHandler::SendBuffersToMain() {
 	if (threadControlPtr->displaySignal1_choice != none || threadControlPtr->displaySignal2_choice != none || threadControlPtr->displaySignalXcorr_choice != none) {
 
 		uint64_t u32Elapsed = GetTickCount64() - u32StartTimeDisplaySignals;
-		if (u32Elapsed >= threadControlPtr->displaySignals_refresh_rate) {
+		if (u32Elapsed >= DcsCfg.real_time_display_refresh_rate_ms){
 			std::unique_lock<std::shared_mutex> lock(threadControlPtr->sharedMutex, std::try_to_lock);
 
 			if (lock.owns_lock()) {
@@ -3805,8 +3820,8 @@ void ThreadHandler::SendBuffersToMain() {
 void ThreadHandler::LogStats(HANDLE fileHandle, unsigned int fileCount, unsigned int u32LoopCount,
 	unsigned int NumberOfIGMs, unsigned int NumberOfIGMsAveraged,
 	unsigned int NumberOfIGMsTotal, unsigned int NumberOfIGMsAveragedTotal,
-	float PercentageIGMsAveraged, bool FindingFirstIGM, bool NotEnoughIGMs, unsigned int path_length_m,
-	double dfr, char* measurement_name) {
+	float PercentageIGMsAveraged, bool UnwrapError, bool NotEnoughIGMs, unsigned int path_length_m,
+	double dfr, char* measurement_name, int SaveToFile) {
 	DWORD dwBytesWritten = 0;
 	char buffer[1024]; // Adjust size as needed
 	int ErrorCode = 0;
@@ -3814,23 +3829,23 @@ void ThreadHandler::LogStats(HANDLE fileHandle, unsigned int fileCount, unsigned
 	if (u32LoopCount == 0) {
 		// Header line for CSV
 		sprintf_s(buffer, sizeof(buffer),
-			"StartTimeBuffer, FileCount, BufferCount,# IGMs,# IGMs averaged,# IGMs total,# IGMs averaged total,%% IGMs averaged, Error Code, Path Length, Dfrm Measurement name\n");
+			"StartTimeBuffer, FileCount, BufferCount,# IGMs,# IGMs averaged,# IGMs total,# IGMs averaged total,%% IGMs averaged, Error Code, Path Length, Dfr, Measurement name, Save Data\n");
 		WriteFile(fileHandle, buffer, strlen(buffer), &dwBytesWritten, NULL);
 	}
 	else {
 
 		if (NotEnoughIGMs) {
-			ErrorCode = 2;
-		}
-		else if (FindingFirstIGM) {
 			ErrorCode = 1;
+		}
+		else if (UnwrapError) {
+			ErrorCode = 2;
 
 		}
 		// Data line for CSV
 		sprintf_s(buffer, sizeof(buffer), // Formatting of date without ms in excel
-			"%s, %u,%u,%u,%u,%u,%u,%.2f, %d, %u, %.6f, %s\n", CurrentStartTimeBuffer, fileCount,
+			"%s, %u,%u,%u,%u,%u,%u,%.2f, %d, %u, %.6f, %s, %d\n", CurrentStartTimeBuffer, fileCount,
 			u32LoopCount, NumberOfIGMs, NumberOfIGMsAveraged,
-			NumberOfIGMsTotal, NumberOfIGMsAveragedTotal, PercentageIGMsAveraged, ErrorCode, path_length_m, dfr, measurement_name);
+			NumberOfIGMsTotal, NumberOfIGMsAveragedTotal, PercentageIGMsAveraged, ErrorCode, path_length_m, dfr, measurement_name, SaveToFile);
 		WriteFile(fileHandle, buffer, strlen(buffer), &dwBytesWritten, NULL);
 
 	}
@@ -3913,6 +3928,7 @@ void ThreadHandler::UpdateProgress(int32_t u32LoopCount)
 	double	dRate;
 	double	dTotal;
 	uint64_t u32Elapsed = 0;
+	char message[400];
 	//static  uInt32 u32RefStarTime = GetTickCount();
 
 	u32Elapsed = GetTickCount64() - u32StartTime;
@@ -3948,16 +3964,24 @@ void ThreadHandler::UpdateProgress(int32_t u32LoopCount)
 			printf("\033[K\n");
 
 			// Print the second part
-			printf("Batch number: %d, Dfr: %.5f Hz,AvgBatch: %.1f%%%, AvgTot: %.1f%%%-5s", fileCount, static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor, DcsHStatus.percentageAvgBlock,
+			printf("Batch number: %d, Dfr: %.5f Hz, AvgBatch: %.1f%%%, AvgTot: %.1f%%%-5s", fileCount, static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor, DcsHStatus.percentageAvgBlock,
 				100 * static_cast<double>(DcsHStatus.NIGMsAvgTot) / static_cast<double>(DcsHStatus.NIGMsTot), "");
 			fflush(stdout);
 
 			// Move the cursor up to the previous line
 			printf("\033[F");
 
+			if (u32Elapsed/1000 / DcsCfg.console_status_update_refresh_rate_s > console_update_counter) {
 
+				snprintf(message, sizeof(message), "\nStatus Update: LoopCount: %d, Total: %0.2f MB, Rate: %6.2f MB/s, Elapsed time: %u:%02u:%02u\nBatch number: %d, Dfr: %.5f Hz, AvgBatch: %.1f%%%, AvgTot: %.1f%%%-5s", u32LoopCount, dTotal, dRate, 
+					(unsigned int)h, (unsigned int)m, (unsigned int)s, fileCount, static_cast<double>(DcsCfg.sampling_rate_Hz) / DcsHStatus.previousptsPerIGM_ptr[0] / DcsCfg.decimation_factor, DcsHStatus.percentageAvgBlock,
+					100 * static_cast<double>(DcsHStatus.NIGMsAvgTot) / static_cast<double>(DcsHStatus.NIGMsTot), "");
+				ErrorHandler(0, message, MESSAGE_);
+
+				console_update_counter += 1;
+			}
 		}
-
+		
 	}
 }
 

@@ -39,6 +39,8 @@
 	"slack_bot_token": "",
 	"slack_app_token": "",
 	"slack_channel_ID": "",
+	"real_time_display_refresh_rate_ms": 50,
+	"console_status_update_refresh_rate_s": 1200,
 	"do_post_processing": 1,
 	"date_path": "C:\\GPU_acquisition\\Post_processing\\20240603_12h13m50s",
 	"input_data_file_name": "Input_data\\post_processing_data.bin"

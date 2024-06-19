@@ -111,6 +111,8 @@ typedef struct
 	int nb_pts_extra;
 	int64_t nb_pts_post_processing_64bit;  // need a new variable because changing other variable changes structure alignment??
 	int nb_harmonic;
+	int real_time_display_refresh_rate_ms;
+	int console_status_update_refresh_rate_s;
 
 }DCSCONFIG, * PDCSCONFIG;
 

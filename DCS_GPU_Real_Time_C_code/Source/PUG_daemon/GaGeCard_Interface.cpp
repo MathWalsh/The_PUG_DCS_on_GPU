@@ -327,9 +327,9 @@ int32 GaGeCard_interface::InitializeStream()
 	{
 		char errorStr[200];
 
-		sprintf_s(errorStr, sizeof(errorStr), _T("Selecting Expert %s from image 1.\n"), szExpert);
+		//sprintf_s(errorStr, sizeof(errorStr), _T("Selecting Expert %s from image 1.\n"), szExpert);
 		//_ftprintf(stdout, _T("\nSelecting Expert %s from image 1."), szExpert);
-		ErrorHandler(0, errorStr, MESSAGE_);
+		//ErrorHandler(0, errorStr, MESSAGE_);
 
 		CsAcqCfg.u32Mode |= CS_MODE_USER1;
 	}
@@ -337,9 +337,9 @@ int32 GaGeCard_interface::InitializeStream()
 	{
 		char errorStr[200];
 
-		sprintf_s(errorStr, sizeof(errorStr), _T("Selecting Expert %s from image 2.\n"), szExpert);
+		//sprintf_s(errorStr, sizeof(errorStr), _T("Selecting Expert %s from image 2.\n"), szExpert);
 		//_ftprintf(stdout, _T("\nSelecting Expert %s from image 2."), szExpert);
-		ErrorHandler(0, errorStr, MESSAGE_);
+		//ErrorHandler(0, errorStr, MESSAGE_);
 
 		CsAcqCfg.u32Mode |= CS_MODE_USER2;
 	}
