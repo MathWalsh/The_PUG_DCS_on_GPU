@@ -631,6 +631,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			DcsHStatus.FindFirstIGM[0] = true;
 			DcsHStatus.NIGMsTot += DcsHStatus.NIGMs_ptr[0];
 			DcsHStatus.NIGMsBlockTot += DcsHStatus.NIGMs_ptr[0];
+			DcsHStatus.NIGMs_ptr[2] = 0;
 		}
 		cudaMemcpy(DcsHStatus.UnwrapError_ptr, DcsDStatus.UnwrapError_ptr, sizeof(bool), cudaMemcpyDeviceToHost); // Check if we have an unwrap in self-correction
 
@@ -766,13 +767,16 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 
 			}
 			else { // We are not saving the IGMs, si we reset variables
-				DcsHStatus.SaveMeanIGM = false;
-				DcsHStatus.NBufferAvg = 0;
-				DcsHStatus.max_xcorr_sum_ptr[0] = 0.0f;
-				cudaMemset(DcsDStatus.max_xcorr_sum_ptr, 0, sizeof(double));
-				DcsHStatus.NIGMsBlock = 0;
-				DcsHStatus.NIGMsBlockTot = 0;
+				DcsHStatus.NIGMs_ptr[2] = 0;
 			}
+		}
+		else { // We are not saving the IGMs, si we reset variables
+			DcsHStatus.SaveMeanIGM = false;
+			DcsHStatus.NBufferAvg = 0;
+			DcsHStatus.max_xcorr_sum_ptr[0] = 0.0f;
+			cudaMemset(DcsDStatus.max_xcorr_sum_ptr, 0, sizeof(double));
+			DcsHStatus.NIGMsBlock = 0;
+			DcsHStatus.NIGMsBlockTot = 0;
 		}
 	}
 	if (DcsHStatus.NIGMsBlockTot > 0)
