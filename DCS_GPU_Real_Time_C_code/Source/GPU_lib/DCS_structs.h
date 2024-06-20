@@ -113,7 +113,7 @@ typedef struct
 	int nb_harmonic;
 	int real_time_display_refresh_rate_ms;
 	int console_status_update_refresh_rate_s;
-
+	int do_cubic_interpolation;
 }DCSCONFIG, * PDCSCONFIG;
 
 

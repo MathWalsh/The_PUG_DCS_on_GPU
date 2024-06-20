@@ -12,6 +12,7 @@
 	"do_phase_projection": 1,
 	"projection_wvl_nm": 1590,
 	"do_fast_resampling": 1,
+	"do_cubic_interpolation": 0,
 	"spectro_mode": 0,
 	"nb_harmonic": 1,
 	"references_total_path_length_offset_m": 0,

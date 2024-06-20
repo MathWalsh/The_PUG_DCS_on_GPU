@@ -1048,6 +1048,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 			}
 
 		}
+
 		if (DcsCfg.do_phase_projection == 0 && DcsCfg.do_fast_resampling == 1 && DcsCfg.spectro_mode == 0) {
 			//Create the dfr reference 
 			//Here we assume that the signals are placed in this oder: IGMs, foptCW1_C1, foptCW1_C2, foptCW2_C1, foptCW2_C2;
@@ -1091,7 +1092,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 				ErrorHandler(0, errorString, ERROR_);
 			}
 		}
-		else if (DcsCfg.do_phase_projection == 1 && DcsCfg.do_fast_resampling == 1 && DcsCfg.spectro_mode == 0) {
+		else if ((DcsCfg.do_phase_projection == 1 && DcsCfg.do_fast_resampling == 1 && DcsCfg.spectro_mode == 0) || DcsCfg.spectro_mode == 1) {
 
 			// Create linspace for resampling with the slope parameters estimated in the unwrap
 			int index_linspace = 0;
@@ -1135,7 +1136,7 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 		}
 	}
 	// We bring the IGM spectrum near 0 Hz for the self-correction (Better for xcorr and resampling)
-	if (DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 0 || DcsCfg.nb_phase_references == 0 || DcsCfg.nb_phase_references == 1 || DcsCfg.do_phase_projection == 0 && DcsCfg.spectro_mode == 2) {
+	if ((DcsCfg.do_phase_projection == 0 && (DcsCfg.spectro_mode == 0 || DcsCfg.spectro_mode == 2)) || DcsCfg.nb_phase_references == 0 || DcsCfg.nb_phase_references == 1) {
 
 		int blocksRotate = (DcsHStatus.segment_size_ptr[0] + 128 - 1) / 128;
 		rotate_IGMs_phase_GPU(IGMs_corrected_ptr, DcsHStatus.IGMs_rotation_angle, DcsCfg.slope_self_correction, DcsHStatus.segment_size_ptr[0], DcsCfg.decimation_factor,
