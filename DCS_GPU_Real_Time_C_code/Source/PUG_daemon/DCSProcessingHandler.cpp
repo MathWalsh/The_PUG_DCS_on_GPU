@@ -367,7 +367,11 @@ void DCSProcessingHandler::fillStructFrom_computed_paramsJSON()
 void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
 {
     cJSON* jsonDataPtr = a_priori_params_jsonDataPtr;
-
+    // Default values
+    DcsCfg.real_time_display_refresh_rate_ms = 50;
+    DcsCfg.console_status_update_refresh_rate_s = 1200;
+    DcsCfg.do_weighted_average = 0; // Needs to be tester before going back in apriori
+    DcsCfg.nb_pts_interval_interpolation = 20;
     if (!jsonDataPtr)
     {
         const char* error_ptr = cJSON_GetErrorPtr();
@@ -411,12 +415,11 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
         if (cJSON_IsNumber(item)) {
             DcsCfg.save_data_to_file = item->valueint;
         }
-
+      
         /*item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "do_weighted_average");
         if (cJSON_IsNumber(item)) {
             DcsCfg.do_weighted_average = item->valueint;
         }*/
-        DcsCfg.do_weighted_average = 0; // Needs to be tester before going back in apriori
 
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "do_phase_projection");
         if (cJSON_IsNumber(item)) {
@@ -531,6 +534,30 @@ void DCSProcessingHandler::fillStructFrom_apriori_paramsJSON()
         if (cJSON_IsString(item) && (item->valuestring != NULL)) {
             DcsCfg.measurement_name = _strdup(item->valuestring);
         }
+
+        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "real_time_display_refresh_rate_ms");
+        if (cJSON_IsNumber(item)) {
+            DcsCfg.real_time_display_refresh_rate_ms = item->valueint;
+
+            if (DcsCfg.real_time_display_refresh_rate_ms < 50) { // To minimize lag on GUI
+                DcsCfg.real_time_display_refresh_rate_ms = 50;
+            }
+        }
+
+        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "console_status_update_refresh_rate_s");
+        if (cJSON_IsNumber(item)) {
+            DcsCfg.console_status_update_refresh_rate_s = item->valueint;
+
+            if (DcsCfg.console_status_update_refresh_rate_s < 600) { // To minimize spam
+                DcsCfg.console_status_update_refresh_rate_s = 600;
+            }
+        }
+
+        item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "do_cubic_interpolation");
+        if (cJSON_IsNumber(item)) {
+            DcsCfg.do_cubic_interpolation = item->valueint;
+        }
+
     }
 }
 

@@ -1,4 +1,4 @@
-GaGe card memory acquisition bug
+GaGe card memory acquisition bug (Current fix : allocating the buffer at the start of the C application. Thus the problem can only occur when starting the C app)
 	Streaming buffer error -57 : CS_INSUFFICIENT_RESOURCES
 	
 	Only current solution is to reboot the PC
@@ -14,15 +14,15 @@ GaGe card memory acquisition bug
  
             	Gage API cannot reset the PC memory. Memory management belong to Windows OS. Reboot the PC will reset the PC memory.
 
+
 Non inclusion of windows.h in library causes invalid memory access
 
 IGM continuity between batches.
 
 Documentation, read me code an exe only checkout / installation & code a code installation
 
-Make release in lib project, detail procedure in read me 
 
-Curl script to retreive a lib release in public project. 
+Curl script to retrieve a lib release in public project. 
 
 Pass on error handling to reduce console verbosity and redirect to TCP messages
 
@@ -34,8 +34,6 @@ UDP Automatization
 	change delay
 	change name
 
-DFG
-
 2 channels
 
 dfr from references. 
@@ -45,7 +43,7 @@ Allow loading params from previous acquisition
 
 Output 4 rather than 2 buffers, allow a wider choice of signals
 	Signals wish list:
-		The 4 ref signals
+		
 		The 2 phase difs 
 
 Pre-acquisition mode with live update 
