@@ -102,6 +102,9 @@ class PUGApplicationHandler(Qt.QObject):
         self.message_window.messageBox.append(message)
         if (self.slack_bot != None):
             self.slack_bot.send_message(message)
+            
+    def errorFromSlack(self, message):
+        self.message_window.messageBox.append(message)
         
     def newMessageUDP(self,message):
         self.parse_UDP_RemoteControl(message)
