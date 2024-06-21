@@ -45,6 +45,7 @@ from slack_sdk.socket_mode import SocketModeClient
 from slack_sdk.socket_mode.request import SocketModeRequest
 from slack_sdk.socket_mode.response import SocketModeResponse
 
+import time
 
 """
 For future use, when SlacBot will be able to receive commads
@@ -78,6 +79,10 @@ class SlackChatBot:
         self.responder = None
         self.startDelimiter = start_delimiter
         self.stopDelimiter = stop_delimiter
+        
+        self.last_message = ""
+        self.last_message_time = 0
+        self.timeout = 60  # Timeout period in seconds
 
     def setResponder(self, responder):
         """
@@ -102,7 +107,19 @@ class SlackChatBot:
         try:
             message = self.name + ":  " + text
             
+            current_time = time.time()
+
+            # Check if the message is the same as the last one sent within the timeout period
+            if message == self.last_message and (current_time - self.last_message_time) < self.timeout:
+                #print("Message not sent: Duplicate message within timeout period.")
+                return
+            
+            # Send the message
             response = self.client.chat_postMessage(channel=channel, text=message)
+            
+            # Update the last message and time
+            self.last_message = message
+            self.last_message_time = current_time
 
         except SlackApiError as e:
             self.handleError(f"Error sending message: {e.response['error']}")
@@ -197,6 +214,6 @@ if __name__ == "__main__":
     bot.setResponder(resp)
     bot.start()
     
-    bot.send_messageToChannel(channelIDs, "Hello, sending to specific channel")
+    bot.send_messageToChannel(channelID, "Hello, sending to specific channel")
     bot.send_message("Joining the channel")
   
