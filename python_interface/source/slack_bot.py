@@ -90,14 +90,18 @@ class SlackChatBot:
         self.running = False
         self.message_queue = Queue()
         
-    def __del__(self):
-       self.running = False
-       self.message_queue.put((None, None))
-       self.thread.join()   
+        if not self.check_connection():
+           raise ConnectionError("Failed to connect to Slack.")
         
+    def __del__(self):
+       if self.running == True:
+           self.message_queue.put((None, None))
+           self.thread.join()   
+       self.running == False
+       
     def _threadFunction(self):
         while self.running:
-            print('yes')
+            #print('yes')
             channel, text = self.message_queue.get()
             if channel is None:
                 break
@@ -123,6 +127,18 @@ class SlackChatBot:
 
       except SlackApiError as e:
           self.handleError(f"Error sending message: {e.response['error']}")    
+
+
+    def check_connection(self):
+        try:
+            response = self.client.auth_test()
+            if response['ok']:
+                #print(f"Successfully connected to Slack as {response['user']} in workspace {response['team']}.")
+                return True
+        except SlackApiError as e:
+            self.handleError(f"Failed to connect to Slack: {e.response['error']}")
+
+        return False
 
 
     def setResponder(self, responder):
@@ -236,11 +252,18 @@ if __name__ == "__main__":
 
 
     resp = Responder()    
-    bot = SlackChatBot(slack_bot_token, slack_app_token,bot_name, channelID)
-    bot.join_channel(channelID) 
-    bot.setResponder(resp)
-    bot.start()
+   
+    try:
+        bot = SlackChatBot(slack_bot_token, slack_app_token,bot_name, channelID)
+    except ConnectionError as e:
+        bot = None;
+        #print(e)
+        
+    if bot != None:
+        bot.join_channel(channelID) 
+        bot.setResponder(resp)
+        bot.start()
     
-    bot.send_messageToChannel(channelID, "Hello, sending to specific channel")
-    bot.send_message("Joining the channel")
+        bot.send_messageToChannel(channelID, "Hello, sending to specific channel")
+        bot.send_message("Joining the channel")
   
