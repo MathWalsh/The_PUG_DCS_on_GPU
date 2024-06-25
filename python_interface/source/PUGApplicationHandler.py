@@ -67,7 +67,7 @@ class PUGApplicationHandler(Qt.QObject):
         slack_channel_ID = self.main_window.apriori_json_form.jsonData.get('slack_channel_ID', "")
         
         if slack_bot_token != "" and slack_app_token != "" and slack_channel_ID != "":
-            #print("slack ok")
+            print("slack ok")
             
             slack_bot_name = self.main_window.apriori_json_form.jsonData.get('slack_bot_name', "")
             
@@ -75,7 +75,7 @@ class PUGApplicationHandler(Qt.QObject):
             self.slack_bot.setResponder(self)
             self.slack_bot.start()
         else:
-            #print("slack no")
+            print("slack no")
             self.slack_bot= None;
         self.startTimer()
 

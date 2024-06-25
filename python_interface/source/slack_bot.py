@@ -45,6 +45,9 @@ from slack_sdk.socket_mode import SocketModeClient
 from slack_sdk.socket_mode.request import SocketModeRequest
 from slack_sdk.socket_mode.response import SocketModeResponse
 
+import threading
+from queue import Queue
+
 import time
 
 """
@@ -83,6 +86,44 @@ class SlackChatBot:
         self.last_message = ""
         self.last_message_time = 0
         self.timeout = 60  # Timeout period in seconds
+        
+        self.running = False
+        self.message_queue = Queue()
+        
+    def __del__(self):
+       self.running = False
+       self.message_queue.put((None, None))
+       self.thread.join()   
+        
+    def _threadFunction(self):
+        while self.running:
+            print('yes')
+            channel, text = self.message_queue.get()
+            if channel is None:
+                break
+            self._send_messageToChannel(channel, text)
+            
+    def _send_messageToChannel(self, channel, text):
+      try:
+          message = self.name + ":  " + text
+          
+          current_time = time.time()
+
+          # Check if the message is the same as the last one sent within the timeout period
+          if message == self.last_message and (current_time - self.last_message_time) < self.timeout:
+              #print("Message not sent: Duplicate message within timeout period.")
+              return
+          
+          # Send the message
+          response = self.client.chat_postMessage(channel=channel, text=message)
+          
+          # Update the last message and time
+          self.last_message = message
+          self.last_message_time = current_time
+
+      except SlackApiError as e:
+          self.handleError(f"Error sending message: {e.response['error']}")    
+
 
     def setResponder(self, responder):
         """
@@ -103,31 +144,11 @@ class SlackChatBot:
         self.stopDelimiter = delimiter
 
 
-    def send_messageToChannel(self, channel, text):
-        try:
-            message = self.name + ":  " + text
-            
-            current_time = time.time()
-
-            # Check if the message is the same as the last one sent within the timeout period
-            if message == self.last_message and (current_time - self.last_message_time) < self.timeout:
-                #print("Message not sent: Duplicate message within timeout period.")
-                return
-            
-            # Send the message
-            response = self.client.chat_postMessage(channel=channel, text=message)
-            
-            # Update the last message and time
-            self.last_message = message
-            self.last_message_time = current_time
-
-        except SlackApiError as e:
-            self.handleError(f"Error sending message: {e.response['error']}")
-
     def send_message(self, text):
         self.send_messageToChannel(self.channel,text)
         
-
+    def send_messageToChannel(self, channel, text):
+        self.message_queue.put((channel, text))
 
     def process_message(self, data):
         if 'text' in data and 'channel' in data:
@@ -186,6 +207,12 @@ class SlackChatBot:
                 client.send_socket_mode_response(response)
 
         self.socket_mode_client.connect()
+        
+        self.running = True;
+        self.thread = threading.Thread(target=self._threadFunction)
+        self.thread.start()
+        
+ 
 
 if __name__ == "__main__":
     
