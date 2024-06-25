@@ -108,25 +108,37 @@ class SlackChatBot:
             self._send_messageToChannel(channel, text)
             
     def _send_messageToChannel(self, channel, text):
-      try:
-          message = self.name + ":  " + text
-          
-          current_time = time.time()
 
-          # Check if the message is the same as the last one sent within the timeout period
-          if message == self.last_message and (current_time - self.last_message_time) < self.timeout:
-              #print("Message not sent: Duplicate message within timeout period.")
-              return
+        retries = 3;
+        message = self.name + ":  " + text
           
-          # Send the message
-          response = self.client.chat_postMessage(channel=channel, text=message)
-          
-          # Update the last message and time
-          self.last_message = message
-          self.last_message_time = current_time
+        current_time = time.time()
 
-      except SlackApiError as e:
-          self.handleError(f"Error sending message: {e.response['error']}")    
+        # Check if the message is the same as the last one sent within the timeout period
+        if message == self.last_message and (current_time - self.last_message_time) < self.timeout:
+            #print("Message not sent: Duplicate message within timeout period.")
+            return
+        
+        for attempt in range(retries):
+            try:       
+                # Send the message
+                response = self.client.chat_postMessage(channel=channel, text=message)
+            
+                if response['ok']:
+                    # Update the last message and time
+                    self.last_message = message
+                    self.last_message_time = current_time
+                    return
+
+            except SlackApiError as e:
+                self.handleError(f"Slack API error: {e.response['error']}")
+            except Exception as e:
+                self.handleError(f"Error sending message: {e}")
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    self.handleError(f"Failed to send message after {retries} attempts")
+                    return
 
 
     def check_connection(self):
