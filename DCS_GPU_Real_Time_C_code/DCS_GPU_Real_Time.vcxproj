@@ -114,8 +114,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>Source\GPU_lib;$(GageDir)\lib64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>DCS_GPU_library.lib;cuda.lib;CsAppSupport.lib;CsSsm.lib;cufft.lib;cusolver.lib;cublas.lib;cublasLt.lib;cusparse.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>Source\GPU_lib;$(GageDir)\lib64;$(WindowsSdkDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>DCS_GPU_library.lib;cuda.lib;CsAppSupport.lib;CsSsm.lib;cufft.lib;cusolver.lib;cublas.lib;cublasLt.lib;cusparse.lib;DbgHelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
       <AdditionalManifestDependencies>%(AdditionalManifestDependencies)</AdditionalManifestDependencies>

@@ -30,11 +30,55 @@
 
 #include "MainThreadHandler.h"
 
+#include <Windows.h>
+#include <DbgHelp.h>
+#include <tchar.h>
+#include <iostream>
+
+
+void CreateMiniDump(EXCEPTION_POINTERS* pep) {
+    // Create a directory for dump files if it doesn't exist
+    CreateDirectory(_T("C:\\CrashDumps"), NULL);
+
+    // Build the dump file name
+    SYSTEMTIME st;
+    GetSystemTime(&st);
+    TCHAR szFileName[MAX_PATH];
+    _stprintf_s(szFileName, _T("C:\\CrashDumps\\DumpFile-%4d%02d%02d-%02d%02d%02d.dmp"),
+        st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+
+    // Create the dump file
+    HANDLE hFile = CreateFile(szFileName, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        // Write the dump
+        MINIDUMP_EXCEPTION_INFORMATION mdei;
+        mdei.ThreadId = GetCurrentThreadId();
+        mdei.ExceptionPointers = pep;
+        mdei.ClientPointers = FALSE;
+
+        // Use MiniDumpWithThreadInfo to include thread information
+        MINIDUMP_TYPE mdt = static_cast<MINIDUMP_TYPE>(MiniDumpNormal | MiniDumpWithThreadInfo);
+
+        MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, mdt, (pep != 0) ? &mdei : 0, 0, 0);
+
+        CloseHandle(hFile);
+    }
+}
+
+LONG WINAPI CustomUnhandledExceptionFilter(EXCEPTION_POINTERS* ExceptionInfo) {
+    CreateMiniDump(ExceptionInfo);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
+
 
 int main()
 {
+    SetUnhandledExceptionFilter(CustomUnhandledExceptionFilter);
+
 	std::cout << "Welcome to the PUG daemon" << std::endl;
 	std::cout << "©2024 M. Walsh, J. Genest" << std::endl;
+
 
 	fs::path GaGeCardInitFilePath = fs::path(TEMPORARY_FOLDER_PATH) / GaGeCardInitFile;
 	MainThreadHandler mainController(CONFIG_FILE_PATH, GaGeCardInitFilePath.string(), TEMPORARY_FOLDER_PATH, TCPIP_port);	// Object that handles the main program thread

@@ -45,6 +45,10 @@ from slack_sdk.socket_mode import SocketModeClient
 from slack_sdk.socket_mode.request import SocketModeRequest
 from slack_sdk.socket_mode.response import SocketModeResponse
 
+import threading
+from queue import Queue
+
+import time
 
 """
 For future use, when SlacBot will be able to receive commads
@@ -78,6 +82,76 @@ class SlackChatBot:
         self.responder = None
         self.startDelimiter = start_delimiter
         self.stopDelimiter = stop_delimiter
+        
+        self.last_message = ""
+        self.last_message_time = 0
+        self.timeout = 60  # Timeout period in seconds
+        
+        self.running = False
+        self.message_queue = Queue()
+        
+        if not self.check_connection():
+           raise ConnectionError("Failed to connect to Slack.")
+        
+    def __del__(self):
+       if self.running == True:
+           self.message_queue.put((None, None))
+           self.thread.join()   
+       self.running == False
+       
+    def _threadFunction(self):
+        while self.running:
+            #print('yes')
+            channel, text = self.message_queue.get()
+            if channel is None:
+                break
+            self._send_messageToChannel(channel, text)
+            
+    def _send_messageToChannel(self, channel, text):
+
+        retries = 3;
+        message = self.name + ":  " + text
+          
+        current_time = time.time()
+
+        # Check if the message is the same as the last one sent within the timeout period
+        if message == self.last_message and (current_time - self.last_message_time) < self.timeout:
+            #print("Message not sent: Duplicate message within timeout period.")
+            return
+        
+        for attempt in range(retries):
+            try:       
+                # Send the message
+                response = self.client.chat_postMessage(channel=channel, text=message)
+            
+                if response['ok']:
+                    # Update the last message and time
+                    self.last_message = message
+                    self.last_message_time = current_time
+                    return
+
+            except SlackApiError as e:
+                self.handleError(f"Slack API error: {e.response['error']}")
+            except Exception as e:
+                self.handleError(f"Error sending message: {e}")
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    self.handleError(f"Failed to send message after {retries} attempts")
+                    return
+
+
+    def check_connection(self):
+        try:
+            response = self.client.auth_test()
+            if response['ok']:
+                #print(f"Successfully connected to Slack as {response['user']} in workspace {response['team']}.")
+                return True
+        except SlackApiError as e:
+            self.handleError(f"Failed to connect to Slack: {e.response['error']}")
+
+        return False
+
 
     def setResponder(self, responder):
         """
@@ -98,19 +172,11 @@ class SlackChatBot:
         self.stopDelimiter = delimiter
 
 
-    def send_messageToChannel(self, channel, text):
-        try:
-            message = self.name + ":  " + text
-            
-            response = self.client.chat_postMessage(channel=channel, text=message)
-
-        except SlackApiError as e:
-            self.handleError(f"Error sending message: {e.response['error']}")
-
     def send_message(self, text):
         self.send_messageToChannel(self.channel,text)
         
-
+    def send_messageToChannel(self, channel, text):
+        self.message_queue.put((channel, text))
 
     def process_message(self, data):
         if 'text' in data and 'channel' in data:
@@ -169,6 +235,12 @@ class SlackChatBot:
                 client.send_socket_mode_response(response)
 
         self.socket_mode_client.connect()
+        
+        self.running = True;
+        self.thread = threading.Thread(target=self._threadFunction)
+        self.thread.start()
+        
+ 
 
 if __name__ == "__main__":
     
@@ -192,11 +264,18 @@ if __name__ == "__main__":
 
 
     resp = Responder()    
-    bot = SlackChatBot(slack_bot_token, slack_app_token,bot_name, channelID)
-    bot.join_channel(channelID) 
-    bot.setResponder(resp)
-    bot.start()
+   
+    try:
+        bot = SlackChatBot(slack_bot_token, slack_app_token,bot_name, channelID)
+    except ConnectionError as e:
+        bot = None;
+        #print(e)
+        
+    if bot != None:
+        bot.join_channel(channelID) 
+        bot.setResponder(resp)
+        bot.start()
     
-    bot.send_messageToChannel(channelIDs, "Hello, sending to specific channel")
-    bot.send_message("Joining the channel")
+        bot.send_messageToChannel(channelID, "Hello, sending to specific channel")
+        bot.send_message("Joining the channel")
   

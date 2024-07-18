@@ -1882,7 +1882,7 @@ void MainThreadHandler::EventTimer()
 				PushBuffersToTCP();
 				PushErrorMessagesToTCP();
 
-				checkActivity();
+				//checkActivity();
 
 				// Reschedule the timer
 				EventTimer();

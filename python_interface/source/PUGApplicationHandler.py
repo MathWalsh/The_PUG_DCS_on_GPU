@@ -66,17 +66,29 @@ class PUGApplicationHandler(Qt.QObject):
         slack_app_token = self.main_window.apriori_json_form.jsonData.get('slack_app_token', "")
         slack_channel_ID = self.main_window.apriori_json_form.jsonData.get('slack_channel_ID', "")
         
+        
+        self.slack_bot = None
+        
         if slack_bot_token != "" and slack_app_token != "" and slack_channel_ID != "":
-            #print("slack ok")
+            
             
             slack_bot_name = self.main_window.apriori_json_form.jsonData.get('slack_bot_name', "")
             
-            self.slack_bot = SlackChatBot(slack_bot_token, slack_app_token,slack_bot_name, slack_channel_ID)
-            self.slack_bot.setResponder(self)
-            self.slack_bot.start()
+            try:
+                self.slack_bot = SlackChatBot(slack_bot_token, slack_app_token,slack_bot_name, slack_channel_ID)
+            
+            except ConnectionError as e:
+                self.slack_bot = None
+                
+        if self.slack_bot != None:        
+               print("slack ok")
+               self.slack_bot.setResponder(self)
+               self.slack_bot.start()
+
         else:
-            #print("slack no")
+            print("slack no")
             self.slack_bot= None;
+
         self.startTimer()
 
     def show_main_window(self):
@@ -102,6 +114,9 @@ class PUGApplicationHandler(Qt.QObject):
         self.message_window.messageBox.append(message)
         if (self.slack_bot != None):
             self.slack_bot.send_message(message)
+            
+    def errorFromSlack(self, message):
+        self.message_window.messageBox.append(message)
         
     def newMessageUDP(self,message):
         self.parse_UDP_RemoteControl(message)
