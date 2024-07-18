@@ -699,7 +699,8 @@ class mainWindow(QtWidgets.QMainWindow):
         numEl = len(float32_values)
         
         if(numEl % 3 !=0 or numEl==0):
-            self.responder.user_message('XCorr data size is not a multiple of 3')
+            pass
+            # self.responder.user_message('XCorr data size is not a multiple of 3')
         else:
             numEl = round(numEl/3);
             #self.responder.user_message('ok !')

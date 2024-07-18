@@ -791,8 +791,8 @@ void ThreadHandler::ProcessInGPU(int32_t u32LoopCount)
 	if (DcsHStatus.FindFirstIGM[0] == true && DcsHStatus.max_xcorr_first_IGM_ptr[0] > DcsCfg.xcorr_threshold_low) {
 		DcsHStatus.FirstIGMFound = true;
 		DcsHStatus.max_xcorr_first_IGM_ptr[0] = 0;
-		//DcsHStatus.previousptsPerIGM_ptr[0] = DcsCfg.ptsPerIGM_sub; // We reset the dfr to the one computed in matlab. Temporary fix, we should calculate it with 3-4 IGMs in find_first_IGMs_ZPD_GPU, or keep track of it with the references
-		DcsHStatus.previousptsPerIGM_ptr[0] = DcsHStatus.ptsPerIGM_first_IGMs_ptr[0]; // We reset the dfr to the one computed in find_first_IGMs
+		DcsHStatus.previousptsPerIGM_ptr[0] = DcsCfg.ptsPerIGM_sub; // We reset the dfr to the one computed in matlab. Temporary fix, we should calculate it with 3-4 IGMs in find_first_IGMs_ZPD_GPU, or keep track of it with the references
+		//DcsHStatus.previousptsPerIGM_ptr[0] = DcsHStatus.ptsPerIGM_first_IGMs_ptr[0]; // We reset the dfr to the one computed in find_first_IGMs
 	}
 
 	if (u32LoopCount == 0) {
