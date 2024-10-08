@@ -594,7 +594,6 @@ void DCSProcessingHandler::fillStructFrom_gageCard_paramsJSON(uint32_t default_S
             DcsCfg.sampling_rate_Hz = item->valueint;
         }
 
-        
         item = cJSON_GetObjectItemCaseSensitive(jsonDataPtr, "nb_pts_per_buffer");
         if (cJSON_IsNumber(item)) {
             DcsCfg.nb_pts_per_buffer = item->valueint;
@@ -774,6 +773,9 @@ void DCSProcessingHandler::modify_DCSCONFIG_field(const char* field, const void*
     else if (strcmp(field, "references_offset_pts") == 0) {
         DcsCfg.references_offset_pts = *(const int*)value;
     }
+    else if (strcmp(field, "NIGMs_continuity") == 0) {
+        DcsCfg.NIGMs_continuity = *(const int*)value;
+    }
     else {
         char errorString[255];
         snprintf(errorString, sizeof(errorString), "Field '%s' not recognized.\n", field);
@@ -877,7 +879,8 @@ bool DCSProcessingHandler::VerifyDCSConfigParams() {
         }
 
         if (DcsCfg.decimation_factor != 1 && DcsCfg.decimation_factor != 2) {
-            ErrorHandler(0, "Provide a valid decimation_factor (1 or 2) to the apriori params\n", WARNING_);
+            DcsCfg.decimation_factor = 1;
+            //ErrorHandler(0, "Provide a valid decimation_factor (1 or 2) to the apriori params\n", WARNING_);
         }
 
         if (!isPositiveInteger(DcsCfg.nb_buffer_average)) {

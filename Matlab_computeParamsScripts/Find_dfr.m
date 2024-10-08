@@ -83,18 +83,29 @@ else  % Compute template size
 
     % Since 'continuous_ones' is based on where diff_idx_signal == 1, add 1 to map back to the original 'idx_signal'
     % This gives the first index in 'idx_signal' that starts the longest continuous region
-    if ~isempty(start_of_longest)
-        idx1 = idx_signal(start_of_longest); % Template first idx
+     if ~isempty(start_of_longest)
+        if start_of_longest > numel(idx_signal)
+            idx1 = idx_signal(end);
+        else
+            idx1 = idx_signal(start_of_longest); % Template first idx
+        end
     else
         % Handle case where no such index is found
         idx1 = idx_signal(1);
+       % disp("Did not find the template properly");
+
     end
 
     if ~isempty(end_of_longest)
-        idx2 = idx_signal(end_of_longest); % Template first idx
+        if end_of_longest > numel(idx_signal)
+            idx2 = idx_signal(end);
+        else
+            idx2 = idx_signal(end_of_longest); % Template first idx
+        end
     else
         % Handle case where no such index is found
         idx2 = idx_signal(end);
+       % disp("Did not find the template properly");
     end
 
     % Find center of mass of template

@@ -46,7 +46,7 @@ private:
 
 	GaGeCard_interface AcquisitionCard;						// ((std::string)"GaGeCardInitFile.ini") // Object to configure, intialize and control acqu card
 	DCSProcessingHandler DcsProcessing;						// Object to configure  DCS processing
-	std::thread AcquistionAndProcessingThread;
+	std::thread AcquisitionAndProcessingThread;
 	AcquisitionThreadFlowControl threadControl;				// Everything needed for thread flow control and sync
 															// flags, in and out queues and shared mutex
 	
@@ -140,7 +140,7 @@ public:
 	int startRealTimeAcquisition_Processing();			// start acquistion + processing	
 	int	startRealTimeAcquisition();						// start just acquisition 
 	int startProcessingFromDisk();						// start GPU processing from disk
-
+	void SetProcessAndThreadPriority(std::thread& t);
 
 	void sendBuffer1();									// Send content of buffer 1 on TCP	to -all- connected clients-
 	void sendBuffer2();									// Send content of buffer 2 on TCP

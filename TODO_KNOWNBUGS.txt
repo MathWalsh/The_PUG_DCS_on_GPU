@@ -15,24 +15,15 @@ GaGe card memory acquisition bug (Current fix : allocating the buffer at the sta
             	Gage API cannot reset the PC memory. Memory management belong to Windows OS. Reboot the PC will reset the PC memory.
 
 
+Find a way around the buffer overflow error (This happens when the Gage card does not have enough BW to transfer the data in real time, so its internal buffer becomes full and the acquisition stops) 
+
 Non inclusion of windows.h in library causes invalid memory access
 
-IGM continuity between batches.
 
-Documentation, read me code an exe only checkout / installation & code a code installation
-
+code an exe only checkout / installation & code a code installation
 
 Curl script to retrieve a lib release in public project. 
 
-Pass on error handling to reduce console verbosity and redirect to TCP messages
-
-UDP Automatization
-	load params
-	pre-acq
-	compute
-	start / stop
-	change delay
-	change name
 
 2 channels
 

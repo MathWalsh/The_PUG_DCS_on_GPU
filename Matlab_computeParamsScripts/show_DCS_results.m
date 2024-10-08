@@ -56,7 +56,7 @@ mostRecentFolderPath = fullfile(data_absolute_path, mostRecentFolder);
 else
     mostRecentFolderPath = data_absolute_path;
 end
-
+apriori_params.decimation_factor = 1;
 fs = gageCard_params.sampling_rate_Hz;
 DecimateFactor = apriori_params.decimation_factor;
 fs = fs / DecimateFactor;
@@ -67,11 +67,20 @@ SaveDataFloat = apriori_params.save_to_float;
 idxData = (floor(ptsPerIGM/2)-floor((TemplateSize-1)/2)*1: floor(ptsPerIGM/2)+floor((TemplateSize-1)/2)*1);
 files = dir(fullfile(mostRecentFolderPath, '*.bin'));
 
-[~, idx] = sort([files.datenum]);
-files = files(idx);
+% Extract the 'name' field from the struct
+names = {files.name};
+
+% Extract the numeric part of each filename
+numPart = cellfun(@(x) sscanf(x, 'FileOut%d.bin'), names);
+
+% Sort the filenames based on the extracted numbers
+[~, sortIdx] = sort(numPart);
+
+% Reorder the struct array based on the sorted indices
+files = files(sortIdx);
+
 %%
 clear data;
-% data = zeros([ptsPerIGM, numel(files)-1]);
 idxfile = 1;
 for i =1:numel(files)
     fileID = fopen(fullfile(mostRecentFolderPath,files(i).name), 'r');
@@ -88,8 +97,6 @@ for i =1:numel(files)
          if i == 1
             template = data(idxData,i);
          end
-         [acor,lag]  = xcorr(template, data(idxData,idxfile) );  
-         [max_xcorr(idxfile),~] = max(abs(acor));
          idxfile = idxfile + 1;
     else
         continue;
@@ -97,8 +104,7 @@ for i =1:numel(files)
 end
 
 %%
-% max_xcorr = max_xcorr./max(max_xcorr);
-% mean_data = sum(data.*max_xcorr/sum(max_xcorr),2);
+if (size(data,2) > 0)
 mean_data = mean(data,2);
 
 figure;
@@ -111,7 +117,7 @@ if numel(files) < 20
 idxSkip =1;
 else
   idxSkip =20;
-  
+  % idxSkip = 1;
 end
 
 
@@ -127,6 +133,7 @@ hold on;
 plot(f,abs(spcMean), 'k')
 grid on;
 
+end
 
 % Simply calls MATLAB's fft() and fftshift() functions, but also returns the frequency axis, from approximately -0.5 to 0.5 (but takes
 % care of even/odd number of points correctly).

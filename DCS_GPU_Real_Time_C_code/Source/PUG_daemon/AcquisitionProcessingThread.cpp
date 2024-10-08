@@ -15,7 +15,7 @@
 #include "AcquisitionProcessingThread.h"
 #include "ThreadHandler.h"
 
-// Function for live acquisition and processing
+ // Function for live acquisition and processing
 void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_GPU_interface& GpuCard, AcquisitionThreadFlowControl& threadControl, DCSProcessingHandler& DcsProcessing, Processing_choice processing_choice)
 {
 	/**Configuration**/
@@ -31,8 +31,6 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 		handler.AllocateAcquisitionCardStreamingBuffers();		// critical section: this is performed under a mutex lock 
 
 		handler.RegisterAlignedCPUBuffersWithCuda();
-
-		handler.CreatecuSolverHandle();
 
 		handler.AllocateGPUBuffers();
 
@@ -58,7 +56,7 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 	// Get the start time
 	auto startTime = std::chrono::steady_clock::now();
 
-	while(threadControl.AcquisitionStarted ==0 && threadControl.ThreadError == 0)
+	while (threadControl.AcquisitionStarted == 0 && threadControl.ThreadError == 0)
 	{
 		// Check if the timeout has been reached
 		auto currentTime = std::chrono::steady_clock::now();
@@ -72,7 +70,7 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 
 		// Sleep for a short duration to reduce CPU usage
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		
+
 	}
 	// We check if the thread was setup properly
 	if (threadControl.ThreadError == 0)
@@ -87,22 +85,23 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 			//std::cout << "\ru32LoopCount:" << u32LoopCount;
 			try
 			{
-			
+
 				handler.setCurrentBuffers(u32LoopCount & 1); // Set buffer to transfer data to
+
+				handler.ScheduleCardTransferWithCurrentBuffer(u32LoopCount & 1); // Instructing acquisition card to transfer to current buffer
 
 				if (u32LoopCount >= 1) {
 					handler.UpdateProgress(u32LoopCount); // Update transfer progress
 					handler.setStartTimeBuffer(u32LoopCount);
 				}
 
-				handler.ScheduleCardTransferWithCurrentBuffer(u32LoopCount & 1); // Instructing acquisition card to transfer to current buffer
-
 				if (u32LoopCount > 1) {
+					handler.ComputeSelfCorrectionInGPU(u32LoopCount - 2);
 					handler.ProcessInGPU(u32LoopCount - 2);				// This is where GPU processing occurs on work buffer. -2 because it is easier to understand
-					
+
 				}
 				handler.copyDataToGPU_async(u32LoopCount); // Seems like the memcpy to gpu is not really async..., we have to launch the process first
-				
+
 				handler.UpdateLocalDcsCfg(); // To update the Dcs config when the parameters changed
 
 				if (u32LoopCount > 2) {
@@ -111,10 +110,10 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 				if (u32LoopCount > 3) {
 					handler.WriteProcessedDataToFile(u32LoopCount - 2); // Save data to file
 				}
-				
+
 				handler.sleepUntilDMAcomplete();				// Right now this call sleeps the thread until DMA is done...	
 				//			// so if / when we do triple buffer we need to check, without sleeping that both mem copies are done
-		
+
 				handler.setWorkBuffers();						// current buffers become the work buffers for next loop
 				u32LoopCount++;
 
@@ -130,16 +129,17 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 		// We check if there was no error during the processing
 		if (threadControl.ThreadError == 0)
 		{
-			printf("\nEnd u32LoopCount: %d\n", u32LoopCount);
+			printf("\n\nEnd u32LoopCount: %d\n\n", u32LoopCount);
 			/**Acq done or aborted**/
-			std::cout << "\nOut of the acq loop !!!\n";
-			std::cout << "\nProcessing final block\n";
+			std::cout << "\n\nOut of the acq loop !!!\n\n";
+			std::cout << "\n\nProcessing final block\n\n";
 
 
 			handler.StartCounter();
 
 			// Processing of the final workBuffer
 			//handler.copyDataToGPU_async(u32LoopCount); // add +1 to loop count? 
+			handler.ComputeSelfCorrectionInGPU(u32LoopCount - 2);
 			handler.ProcessInGPU(u32LoopCount - 2);
 
 			handler.WriteProcessedDataToFile(u32LoopCount - 2);
@@ -148,7 +148,7 @@ void AcquisitionProcessingThreadFunction(GaGeCard_interface& AcquisitionCard, CU
 		}
 	}
 	handler.setReadyToProcess(false);
-	std::cout << "\nExiting processing thread !!!\n";
+	std::cout << "\n\nExiting processing thread !!!\n\n";	
 	return;
 
 }
@@ -170,8 +170,6 @@ void ProcessingFromDiskThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_
 		handler.AllocateAcquisitionCardStreamingBuffers();		// critical section: this is performed under a mutex lock 
 
 		handler.RegisterAlignedCPUBuffersWithCuda();
-
-		handler.CreatecuSolverHandle();
 
 		handler.AllocateGPUBuffers();
 
@@ -205,10 +203,9 @@ void ProcessingFromDiskThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_
 
 			try
 			{
-				
-			
+
+
 				handler.setCurrentBuffers(u32LoopCount & 1); // Set buffer to transfer data to
-				//handler.StartCounter();
 
 				if (u32LoopCount >= 1) {
 					handler.UpdateProgress(u32LoopCount); // Update transfer progress
@@ -218,27 +215,24 @@ void ProcessingFromDiskThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_
 				handler.ScheduleCardTransferWithCurrentBuffer(u32LoopCount & 1); // Instructing CPU to read data from disk (Could transfer all data to ram at the beginning to be faster)
 				handler.StartCounter();
 
-				//handler.copyDataToGPU_async(u32LoopCount); // Seems like the memcpy to gpu is not really async..., we have to launch the process first
-
-
 				if (u32LoopCount > 1) {
+					handler.ComputeSelfCorrectionInGPU(u32LoopCount - 2);
 					handler.ProcessInGPU(u32LoopCount - 2);				// This is where GPU processing occurs on work buffer. -2 because it is easier to understand
-				
 				}
 				handler.copyDataToGPU_async(u32LoopCount); // Seems like the memcpy to gpu is not really async..., we have to launch the process first
-				
+
 				handler.UpdateLocalDcsCfg();
-				
+
 				if (u32LoopCount > 2) {
 					handler.SendBuffersToMain();
 				}
 				if (u32LoopCount > 3) {
 					handler.WriteProcessedDataToFile(u32LoopCount - 2); // Save data to file
-					
+
 				}
-			
+
 				handler.sleepUntilDMAcomplete();				// Right now this call sleeps for some amount of time based on buffer size and fs	
-				
+
 				handler.setWorkBuffers();						// current buffers become the work buffers for next loop
 				u32LoopCount++;
 
@@ -247,17 +241,16 @@ void ProcessingFromDiskThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_
 				{
 					QueryPerformanceCounter(&stop);
 
-					std::cout << "\nOut of the acq loop !!!\n";
-					std::cout << "\nProcessing final block\n";
+					std::cout << "\n\nOut of the acq loop !!!\n";
+					std::cout << "\n\nProcessing final block\n";
 
 					double elapsedSeconds = static_cast<double>(stop.QuadPart - start.QuadPart) / frequency.QuadPart;
-					std::cout << "\nProcessing from disk took " << elapsedSeconds << " seconds.\n" << std::endl;
+					std::cout << "\n\nProcessing from disk took " << elapsedSeconds << " seconds.\n" << std::endl;
 
 
 					// Processing of the final workBuffer
 
 					handler.copyDataToGPU_async(u32LoopCount); // add +1 to loop count? 
-					handler.ProcessInGPU(u32LoopCount - 2);
 					handler.WriteProcessedDataToFile(u32LoopCount - 2);						// I do not understand what this is doing...
 				}
 
@@ -273,12 +266,12 @@ void ProcessingFromDiskThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_
 				return;
 			}
 		}
-		
+
 	}
 
 	handler.setReadyToProcess(false);
 
-	std::cout << "\nExiting processing thread !!!\n";
+	std::cout << "\n\nExiting processing thread !!!\n\n";
 	return;
 }
 
@@ -295,7 +288,7 @@ void AcquisitionThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_GPU_int
 	{
 		handler.CreateOuputFiles();
 
-		handler.AllocateAcquisitionCardStreamingBuffers();		
+		handler.AllocateAcquisitionCardStreamingBuffers();
 
 		handler.RegisterAlignedCPUBuffersWithCuda();
 
@@ -369,7 +362,7 @@ void AcquisitionThreadFunction(GaGeCard_interface& AcquisitionCard, CUDA_GPU_int
 
 					std::cout << "\nFinished copying data to file\n";
 
-					
+
 				}
 
 			}

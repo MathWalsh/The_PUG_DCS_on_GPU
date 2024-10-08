@@ -379,3 +379,7 @@ FodyWeavers.xsd
 /Matlab_computeParamsScripts/gageCard_params.json
 /Matlab_computeParamsScripts/selfCorrectIGMs_JGE_SJFG_sansHilbert_vAlex.m
 /Matlab_computeParamsScripts/verify_correction.m
+/Matlab_computeParamsScripts/plotffta.m
+/Matlab_computeParamsScripts/open_angle_data.m
+/C_app_working_directory/temp/open_angle_data.m
+/Matlab_computeParamsScripts/compute_DCS_params_GPU.asv

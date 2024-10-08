@@ -1,5 +1,5 @@
 {
-    "nb_pts_per_buffer": 20000000.0,
+    "nb_pts_per_buffer": 40000000.0,
     "segment_size": 20000000.0,
     "nb_channels": 4,
     "sampling_rate_Hz": 200000000,

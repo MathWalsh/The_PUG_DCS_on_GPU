@@ -523,7 +523,7 @@ CSACQUISITIONCONFIG_MOD GaGeCard_interface::getAcquisitionConfig()
 
 // retreive it fron card
 
-int32 GaGeCard_interface::RetreiveAcquisitionConfig()
+int32 GaGeCard_interface::RetrieveAcquisitionConfig()
 {
 
 	// After ACTION_COMMIT, the sample size may change.
@@ -552,7 +552,7 @@ int32 GaGeCard_interface::RetreiveAcquisitionConfig()
 
 }
 
-int32 GaGeCard_interface::RetreiveTotalRequestedSamples()
+int32 GaGeCard_interface::RetrieveTotalRequestedSamples()
 {
 	i32Status = CsGet(GaGe_SystemHandle, 0, CS_STREAM_TOTALDATA_SIZE_BYTES, &TotalRequestedSamples);
 	if (CS_FAILED(i32Status))

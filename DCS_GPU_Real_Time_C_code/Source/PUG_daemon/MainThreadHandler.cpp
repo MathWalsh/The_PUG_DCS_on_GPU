@@ -209,7 +209,7 @@ void MainThreadHandler::parseTCPCommand(std::list<Connection>::iterator con_hand
 
 		DCSCONFIG cfg = DcsProcessing.getDcsConfig();
 
-		setBufferX_signal(xcorr_data, 10 * 3 * ceil(cfg.nb_pts_per_buffer / cfg.ptsPerIGM) * sizeof(float));
+			setBufferX_signal(xcorr_data, 100 * 4 * ceil(cfg.nb_pts_per_buffer / cfg.ptsPerIGM) * sizeof(float));
 
 		error = startRealTimeAcquisition_Processing();
 
@@ -240,7 +240,7 @@ void MainThreadHandler::parseTCPCommand(std::list<Connection>::iterator con_hand
 
 			DCSCONFIG cfg = DcsProcessing.getDcsConfig();
 
-			setBufferX_signal(xcorr_data, 10 * 3 * ceil(cfg.nb_pts_per_buffer / cfg.ptsPerIGM) * sizeof(float));
+			setBufferX_signal(xcorr_data, 100 * 4 * ceil(cfg.nb_pts_per_buffer / cfg.ptsPerIGM) * sizeof(float));
 
 			error = startProcessingFromDisk();  //  right now startProcessingFromDisk does nothing with file path
 
@@ -916,8 +916,9 @@ int MainThreadHandler::startProcessingFromDisk()
 	 Passing it references to the AcquisitionCard, (GPU), flow control objects  by reference
 	 The thread starts when we create it*/
 
-	AcquistionAndProcessingThread = std::thread(ProcessingFromDiskThreadFunction, std::ref(AcquisitionCard), std::ref(GpuCard), std::ref(threadControl), std::ref(DcsProcessing), processing_choice);
-	AcquistionAndProcessingThread.detach();									// We do not wait for this thread to join. It will finish  or we will abort it
+	AcquisitionAndProcessingThread = std::thread(ProcessingFromDiskThreadFunction, std::ref(AcquisitionCard), std::ref(GpuCard), std::ref(threadControl), std::ref(DcsProcessing), processing_choice);
+	//SetProcessAndThreadPriority(AcquisitionAndProcessingThread);
+	AcquisitionAndProcessingThread.detach();									// We do not wait for this thread to join. It will finish  or we will abort it
 
 	std::cout << "Waiting until thread is ready to process\n";
 
@@ -1002,8 +1003,8 @@ int MainThreadHandler::startPreAcquisition()
 		AcquisitionCard.InitializeStream();							// Was after GPU config in original code
 		AcquisitionCard.CleanupFiles();								// Erasing data files having the same name, will have to do better, eventually
 		AcquisitionCard.Commit();									// Actually send the params and config to the card
-		AcquisitionCard.RetreiveAcquisitionConfig();					// Get acq config from card post commit as some things might have changed
-		AcquisitionCard.RetreiveTotalRequestedSamples();				// Get the resquested number of samples to be acquires -1 == infinity
+		AcquisitionCard.RetrieveAcquisitionConfig();					// Get acq config from card post commit as some things might have changed
+		AcquisitionCard.RetrieveTotalRequestedSamples();				// Get the resquested number of samples to be acquires -1 == infinity
 
 	}
 	catch (std::exception& except)
@@ -1134,8 +1135,8 @@ int MainThreadHandler::startStreamToFile()
 		AcquisitionCard.InitializeStream();							// Was after GPU config in original code
 		AcquisitionCard.CleanupFiles();								// Erasing data files having the same name, will have to do better, eventually
 		AcquisitionCard.Commit();									// Actually send the params and config to the card
-		AcquisitionCard.RetreiveAcquisitionConfig();					// Get acq config from card post commit as some things might have changed
-		AcquisitionCard.RetreiveTotalRequestedSamples();				// Get the resquested number of samples to be acquires -1 == infinity
+		AcquisitionCard.RetrieveAcquisitionConfig();					// Get acq config from card post commit as some things might have changed
+		AcquisitionCard.RetrieveTotalRequestedSamples();				// Get the resquested number of samples to be acquires -1 == infinity
 
 	}
 	catch (std::exception& except)
@@ -1532,8 +1533,8 @@ int MainThreadHandler::startRealTimeAcquisition_Processing()
 		AcquisitionCard.InitializeStream();							// Was after GPU config in original code
 		AcquisitionCard.CleanupFiles();								// Erasing data files having the same name, will have to do better, eventually
 		AcquisitionCard.Commit();									// Actually send the params and config to the card
-		AcquisitionCard.RetreiveAcquisitionConfig();					// Get acq config from card post commit as some things might have changed
-		AcquisitionCard.RetreiveTotalRequestedSamples();				// Get the resquested number of samples to be acquires -1 == infinity
+		AcquisitionCard.RetrieveAcquisitionConfig();					// Get acq config from card post commit as some things might have changed
+		AcquisitionCard.RetrieveTotalRequestedSamples();				// Get the resquested number of samples to be acquires -1 == infinity
 
 	}
 	catch (std::exception& except)
@@ -1551,8 +1552,10 @@ int MainThreadHandler::startRealTimeAcquisition_Processing()
 	Passing it references to the AcquisitionCard, (GPU), flow control objects  by reference
 	The thread starts when we create it*/
 
-	AcquistionAndProcessingThread = std::thread(AcquisitionProcessingThreadFunction, std::ref(AcquisitionCard), std::ref(GpuCard), std::ref(threadControl), std::ref(DcsProcessing), processing_choice);
-	AcquistionAndProcessingThread.detach();									// We do not wait for this thread to join. It will finish  or we will abort it
+	AcquisitionAndProcessingThread = std::thread(AcquisitionProcessingThreadFunction, std::ref(AcquisitionCard), std::ref(GpuCard), std::ref(threadControl), std::ref(DcsProcessing), processing_choice);
+	// Set the thread priority to time critical before detaching
+	//SetProcessAndThreadPriority(AcquisitionAndProcessingThread);
+	AcquisitionAndProcessingThread.detach();									// We do not wait for this thread to join. It will finish  or we will abort it
 
 	std::cout << "Waiting until thread is ready to process\n";
 
@@ -1619,8 +1622,10 @@ int MainThreadHandler::startRealTimeAcquisition()
 	Passing it references to the AcquisitionCard, (GPU), flow control objects  by reference
 	The thread starts when we create it*/
 
-	AcquistionAndProcessingThread = std::thread(AcquisitionThreadFunction, std::ref(AcquisitionCard), std::ref(GpuCard), std::ref(threadControl), std::ref(DcsProcessing), processing_choice);
-	AcquistionAndProcessingThread.detach();									// We do not wait for this thread to join. It will finish  or we will abort it
+	AcquisitionAndProcessingThread = std::thread(AcquisitionThreadFunction, std::ref(AcquisitionCard), std::ref(GpuCard), std::ref(threadControl), std::ref(DcsProcessing), processing_choice);
+	// Set the thread priority to time critical before detaching
+	//SetProcessAndThreadPriority(AcquisitionAndProcessingThread);
+	AcquisitionAndProcessingThread.detach();									// We do not wait for this thread to join. It will finish  or we will abort it
 
 	// Get the start time
 	auto startTime = std::chrono::steady_clock::now();
@@ -1806,6 +1811,27 @@ void MainThreadHandler::AllocateDisplaySignalBuffers(int Bytesize)
 
 }
 
+// Function to set both the process and thread priority
+void MainThreadHandler::SetProcessAndThreadPriority(std::thread& t) {
+	// Optional: Set the process priority class to HIGH_PRIORITY_CLASS
+	if (SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS)) {
+		std::cout << "Process priority set to HIGH_PRIORITY_CLASS." << std::endl;
+	}
+	else {
+		std::cerr << "Failed to set process priority: " << GetLastError() << std::endl;
+	}
+
+	// Set the priority of the processing thread to time-critical or highest
+	HANDLE hThread = t.native_handle();
+
+	// Set the thread priority to THREAD_PRIORITY_TIME_CRITICAL (or THREAD_PRIORITY_HIGHEST)
+	if (SetThreadPriority(hThread, THREAD_PRIORITY_HIGHEST)) {
+		std::cout << "Processing thread priority set to THREAD_PRIORITY_HIGHEST." << std::endl;
+	}
+	else {
+		std::cerr << "Failed to set thread priority: " << GetLastError() << std::endl;
+	}
+}
 
 /***************************************************************************************************
 ****************************************************************************************************/
@@ -1882,7 +1908,7 @@ void MainThreadHandler::EventTimer()
 				PushBuffersToTCP();
 				PushErrorMessagesToTCP();
 
-				checkActivity();
+				//checkActivity();
 
 				// Reschedule the timer
 				EventTimer();

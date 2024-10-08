@@ -114,6 +114,8 @@ typedef struct
 	int real_time_display_refresh_rate_ms;
 	int console_status_update_refresh_rate_s;
 	int do_cubic_interpolation;
+	int NIGMs_continuity;
+
 }DCSCONFIG, * PDCSCONFIG;
 
 
@@ -309,6 +311,8 @@ struct DCSDeviceStatus {
 	double* ptsPerIGM_first_IGMs_ptr;
 
 	int* offset_start_ptr;
+	float* ZPDPhase_buffer_ptr;
+	double* ZPDMaxIdx_buffer_ptr;
 
 	// Constructor
 	DCSDeviceStatus()
@@ -355,8 +359,43 @@ struct DCSDeviceStatus {
 		devInfo(nullptr),
 		lwork(0),
 		ptsPerIGM_first_IGMs_ptr(nullptr),
-		offset_start_ptr(nullptr)
+		offset_start_ptr(nullptr),
+		ZPDPhase_buffer_ptr(nullptr),
+		ZPDMaxIdx_buffer_ptr(nullptr)
 	{
 		// Constructor body (if needed)
 	}
 };
+
+struct DCSSelfCorrectionStatus {
+	// General GPU variables
+	
+	int* NIGMs_ptr;              // Number of IGMs in the self-correction
+	int segment_size_ptr; // number of points in the self-correction
+	uint32_t self_correction_counter;
+	int NIGMsBlock;
+	bool FirstBlock;
+	int NBufferAvg;
+	bool* UnwrapError_ptr;
+
+	// Constructor
+	DCSSelfCorrectionStatus()
+		:
+		NIGMs_ptr(new int[2]),
+		segment_size_ptr(0),
+		self_correction_counter(0),
+		NIGMsBlock(0),
+		FirstBlock(true),
+		NBufferAvg(0),
+		UnwrapError_ptr(new bool[1])
+	{
+		// Constructor body (if needed)
+	}
+
+	// Destructor
+	~DCSSelfCorrectionStatus() {
+		delete[] NIGMs_ptr;
+		delete[] UnwrapError_ptr;
+	}
+};
+

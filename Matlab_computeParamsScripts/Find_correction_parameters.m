@@ -88,7 +88,7 @@ else  % Compute template size
     if ~isempty(start_of_longest)
         if start_of_longest > numel(idx_signal)
             idx1 = idx_signal(end);
-            disp("Did not find the template properly");
+            % disp("Did not find the template properly");
         else
             idx1 = idx_signal(start_of_longest); % Template first idx
         end
@@ -102,7 +102,7 @@ else  % Compute template size
     if ~isempty(end_of_longest)
         if end_of_longest > numel(idx_signal)
             idx2 = idx_signal(end);
-            disp("Did not find the template properly");
+            % disp("Did not find the template properly");
 
         else
             idx2 = idx_signal(end_of_longest); % Template first idx
@@ -174,10 +174,11 @@ idxList = find(abs(IGM1_xc)>threshold_xc);
 %Compute phase slope
 slopeEst = polyfit(idxList,unwrap(angle(IGM1_xc(idxList))),1);
 slopeEst(2) = [];
-slope = round(slopeEst/(2*pi/mean(diff(locs))))*(2*pi/mean(diff(locs)));
+slope = round(slopeEst/(2*pi/mean(diff(locs(2:end)))))*(2*pi/mean(diff(locs(2:end))));
 if strcmp(fshiftIGMs, 'cm')
     IGMs = IGMs.*exp(-1j*slope*(0:N-1));
 end
+
 template = conj(IGMs(idxmid-winHW:idxmid+winHW));
 templateFull = conj(IGMs(idxmid-ptsPerIGM/2:idxmid+ptsPerIGM/2-1));
 pattern = IGMs(idxmid-winHW:idxmid+winHW);

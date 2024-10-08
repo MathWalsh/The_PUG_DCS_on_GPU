@@ -112,7 +112,10 @@ class mainWindow(QtWidgets.QMainWindow):
      self.xcorr_amplitudes_archive = deque(maxlen=self.n_xcorr_batches)
      self.xcorr_positions_archive = deque(maxlen=self.n_xcorr_batches)
      self.xcorr_phases_archive = deque(maxlen=self.n_xcorr_batches)
-     
+     # self.xcorr_amplitudes_ratio_archive = deque(maxlen=self.n_xcorr_batches)
+     self.xcorr_amplitudesXcorr_archive = deque(maxlen=self.n_xcorr_batches)
+     self.unwrap_status = False
+    
      self.responder = responder
      
      self.tabWidget =  self.findChild(QtWidgets.QTabWidget, 'tabWidget') 
@@ -314,6 +317,9 @@ class mainWindow(QtWidgets.QMainWindow):
         self.ADC_range_thermo.setValue(0)
         self.ADC_range_thermo.setFillColor(Qt.Qt.blue)
         
+        self.unwrap_error_status_button = self.findChild(QtWidgets.QRadioButton, 'UnwrapErrorStatus_button')             
+        self.set_unwrapErrorStatus_button_style(0)
+        
     def on_tab_change(self, index):
         # This function is called whenever the current tab changes
         #print(f"Tab {index + 1} is now displayed")
@@ -473,7 +479,40 @@ class mainWindow(QtWidgets.QMainWindow):
                    
                 # Setting new ticks and labels
                 self.ADC_range_thermo.setTicks(ticksListMajor, ticksListMinor, ticksLabelMajor)
-            
+      
+    def set_unwrapErrorStatus_button_style(self, state):
+        if not state:
+            self.unwrap_error_status_button.setStyleSheet("""
+                QRadioButton::indicator {
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 8px;
+                    background-color: green;
+                    border: 2px solid black;
+                }
+                QRadioButton::indicator:checked {
+                    background-color: green;
+                    border: 2px solid black;
+                }
+            """)
+        else:
+            self.unwrap_error_status_button.setStyleSheet("""
+                QRadioButton::indicator {
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 8px;
+                    background-color: red;
+                    border: 2px solid black;
+                }
+                QRadioButton::indicator:checked {
+                    background-color: red;
+                    border: 2px solid black;
+                }
+            """)
+        
+      
+        
+      
     def tcp_buttonPressed(self):
         """User pressed the button to connect to TCP server."""
         #print('TCP Button pressed')
@@ -527,7 +566,7 @@ class mainWindow(QtWidgets.QMainWindow):
                     if (self.signal1Choice.currentIndex() == buffer_signals.interferogram_averaged or 
                         self.signal1Choice.currentIndex() == buffer_signals.interferogram_fast_corrected or
                         self.signal1Choice.currentIndex() == buffer_signals.interferogram_self_corrected):
-                        f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6/self.apriori_json_form.jsonData['decimation_factor']
+                        f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6
                     else:
                         f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6
                     self.curve1a.setData(f,spc)
@@ -542,7 +581,7 @@ class mainWindow(QtWidgets.QMainWindow):
                     if (self.signal2Choice.currentIndex() == buffer_signals.interferogram_averaged or 
                         self.signal2Choice.currentIndex() == buffer_signals.interferogram_fast_corrected or
                         self.signal2Choice.currentIndex() == buffer_signals.interferogram_self_corrected):
-                        f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6/self.apriori_json_form.jsonData['decimation_factor']
+                        f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6
                     else:
                         f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6
                     self.curve1a.setData(f,spc)
@@ -552,12 +591,18 @@ class mainWindow(QtWidgets.QMainWindow):
             case display_signals.xcorr_amplitudes:
                 
                 
-                    allItems = [item for sublist in self.xcorr_amplitudes_archive for item in sublist]
+                    #allItems = [item for sublist in self.xcorr_amplitudes_archive for item in sublist]
+                    allItems = [item for sublist in self.xcorr_amplitudesXcorr_archive for item in sublist]
                     array =np.array(allItems)
                 
-                    self.curve1a.setData(np.arange(1, len(array) + 1),array*self.computed_json_form.jsonData['xcorr_factor_mV'])    
+                    self.curve1a.setData(np.arange(1, len(array) + 1),array*self.computed_json_form.jsonData['xcorr_factor_mV'])  
+                    #self.curve1a.setData(np.arange(1, len(array) + 1),array/(2**(self.gage_json_form.jsonData['nb_bytes_per_sample']*8)) 
+                    #                               * self.gage_json_form.jsonData['channel1_range_mV'])
+                    # self.curve1b.setData([], [])
+                   # allItems = [item for sublist in self.xcorr_amplitudesXcorr_archive for item in sublist]
+                    #array =np.array(allItems)    
                     self.curve1b.setData([], [])
-                    
+                    #self.curve1b.setData(np.arange(1, len(array) + 1),array*self.computed_json_form.jsonData['xcorr_factor_mV'])
 
             case display_signals.xcorr_positions:
      
@@ -582,9 +627,9 @@ class mainWindow(QtWidgets.QMainWindow):
                              # final_differences = all_differences - mean_difference
             
              
-                     
-                     self.curve1a.setData(np.arange(1, len(all_differences)+1),all_differences)
-                     self.curve1b.setData([], [])
+                     if (len(all_differences) > 0):
+                         self.curve1a.setData(np.arange(1, len(all_differences)+1),all_differences)
+                         self.curve1b.setData([], [])
 
             case display_signals.xcorr_phases:
                 
@@ -626,7 +671,7 @@ class mainWindow(QtWidgets.QMainWindow):
                         self.signal1Choice.currentIndex() == buffer_signals.interferogram_fast_corrected or
                         self.signal1Choice.currentIndex() == buffer_signals.interferogram_self_corrected):
                         
-                        f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6/self.apriori_json_form.jsonData['decimation_factor']
+                        f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6
                     else:
                         f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6
                     self.curve2a.setData(f,spc)
@@ -642,7 +687,7 @@ class mainWindow(QtWidgets.QMainWindow):
                     if (self.signal2Choice.currentIndex() == buffer_signals.interferogram_averaged or 
                         self.signal2Choice.currentIndex() == buffer_signals.interferogram_fast_corrected or
                         self.signal2Choice.currentIndex() == buffer_signals.interferogram_self_corrected):
-                        f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6/self.apriori_json_form.jsonData['decimation_factor']
+                        f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6
                     else:
                         f *= self.gage_json_form.jsonData['sampling_rate_Hz']/1e6
                     self.curve2a.setData(f,spc)
@@ -651,11 +696,19 @@ class mainWindow(QtWidgets.QMainWindow):
             case display_signals.xcorr_amplitudes:
                 
                 
-                    allItems = [item for sublist in self.xcorr_amplitudes_archive for item in sublist]
+                    #allItems = [item for sublist in self.xcorr_amplitudes_archive for item in sublist]
+                    allItems = [item for sublist in self.xcorr_amplitudesXcorr_archive for item in sublist]
                     array =np.array(allItems)
                 
                     self.curve2a.setData(np.arange(1, len(array) + 1),array*self.computed_json_form.jsonData['xcorr_factor_mV'])    
+                    #self.curve2a.setData(np.arange(1, len(array) + 1),array/(2**(self.gage_json_form.jsonData['nb_bytes_per_sample']*8)) 
+                    #                               * self.gage_json_form.jsonData['channel1_range_mV'])    
+
+
+                   # allItems = [item for sublist in self.xcorr_amplitudesXcorr_archive for item in sublist]
+                    #array =np.array(allItems)    
                     self.curve2b.setData([], [])
+                    #self.curve2b.setData(np.arange(1, len(array) + 1),array*self.computed_json_form.jsonData['xcorr_factor_mV'])
 
             case display_signals.xcorr_positions:
     
@@ -676,10 +729,9 @@ class mainWindow(QtWidgets.QMainWindow):
                             # Optionally, subtract the mean of all differences from each element
                             # mean_difference = np.mean(all_differences)
                             # final_differences = all_differences - mean_difference
-                            
-                    self.curve2a.setData(np.arange(1, len(all_differences)+1),all_differences)
-            
-                    self.curve2b.setData([], [])
+                    if (len(all_differences) > 0):       
+                        self.curve2a.setData(np.arange(1, len(all_differences)+1),all_differences)
+                        self.curve2b.setData([], [])
 
             case display_signals.xcorr_phases:
                 
@@ -697,24 +749,41 @@ class mainWindow(QtWidgets.QMainWindow):
             float32_values.pop()
         
         numEl = len(float32_values)
-        
-        if(numEl % 3 !=0 or numEl==0):
-            self.responder.user_message('XCorr data size is not a multiple of 3')
+        if (float32_values[numEl-1] == 1.0):
+            if (self.unwrap_status == False):
+                self.unwrap_status = True
+                self.set_unwrapErrorStatus_button_style(1)
         else:
-            numEl = round(numEl/3);
+            if (self.unwrap_status == True):
+                self.unwrap_status = False
+                self.set_unwrapErrorStatus_button_style(0)
+            
+            
+        
+        if((numEl -1 )% 4 !=0 or numEl==0):
+            pass
+            # self.responder.user_message('XCorr data size is not a multiple of 3')
+        else:
+            numEl = round((numEl-1)/4);
             #self.responder.user_message('ok !')
             self.XCorr_position = float32_values[0:numEl]
             self.XCorr_phase = float32_values[numEl:2*numEl]
-            self.XCorr_amplitude = float32_values[2*numEl:3*numEl]
+            self.XCorr_amplitudeXcorr = float32_values[2*numEl:3*numEl]
+            self.XCorr_amplitude = float32_values[3*numEl:4*numEl]
             
-            self.xcorr_amplitudes_archive.append( self.XCorr_amplitude)
+            
+            
+            self.xcorr_amplitudes_archive.append(self.XCorr_amplitude)
             self.xcorr_positions_archive.append( self.XCorr_position)
             self.xcorr_phases_archive.append(self.XCorr_phase)
-            
+            self.xcorr_amplitudesXcorr_archive.append(self.XCorr_amplitudeXcorr)
+
             # self.ADC_range_thermo.setValue(statistics.mean(self.XCorr_amplitude)/1.45e10*100)
             if len(self.XCorr_amplitude) > 0:
-                self.ADC_range_thermo.setValue(statistics.mean(self.XCorr_amplitude)*
-                                               self.computed_json_form.jsonData['xcorr_factor_mV'])
+                self.ADC_range_thermo.setValue(statistics.mean(self.XCorr_amplitudeXcorr)*
+                                                self.computed_json_form.jsonData['xcorr_factor_mV'])
+               # self.ADC_range_thermo.setValue(statistics.mean(self.XCorr_amplitude)/(2**(self.gage_json_form.jsonData['nb_bytes_per_sample']*8)) 
+               #                                * self.gage_json_form.jsonData['channel1_range_mV'])
             
             write_data_xcorr(self.xcorr_file, self.XCorr_amplitude) # Write xcorr data to file
             self.IQview.setValues(self.XCorr_phase)

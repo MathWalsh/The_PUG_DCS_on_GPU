@@ -27,6 +27,7 @@ if apriori_params.nb_phase_references < 0 ||  apriori_params.nb_phase_references
 end
 
 c = 299792458; % speed of light m/s
+apriori_params.decimation_factor = 1;
 %% Loading input data
 
 data_absolute_path = fullfile(apriori_params.date_path, apriori_params.input_data_file_name);
@@ -120,8 +121,15 @@ fprintf("dfr found : %.4f Hz\n", dfr);
 %% Compute template if no references
 if apriori_params.nb_phase_references == 0
     dataF = dataF(idxStart:idxEnd, :);
-    [template, templateFull ,phiZPD, normalized_phase_slope, ptsPerIGM_sub, ~, nb_pts_max_xcorr] = Find_correction_parameters(dataF(:,1), ptsPerIGM, ...
+    [template, templateFull ,phiZPD, normalized_phase_slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(dataF(:,1), ptsPerIGM, ...
         'cm', apriori_params.half_width_template);
+
+    normalized_slope_self_corr = polyfit(true_locs(2:end), phiZPD(2:end), 1);
+    normalized_phase_slope(1) = normalized_phase_slope(1) - normalized_slope_self_corr(1);
+    dataF(:,1) = dataF(:,1).*exp(-1j* normalized_phase_slope(1)*(0:length(dataF)-1)');
+    [template, templateFull ,phiZPD, ~, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(dataF(:,1), ptsPerIGM, ...
+        0, apriori_params.half_width_template);
+
     % Unused variables in this case, using default values
     projection_factor = 0;
     phase_projection = 0;
@@ -171,6 +179,9 @@ else
             freqCWs(j + 1) = slope2(1)*fs/2/pi;
             b(:,j) = bfopt.*exp(1j.*2*pi*freqCWs(j)/fs*(0:nb_pts_filt-1));
             b(:,j+1) = bfopt.*exp(1j.*2*pi*freqCWs(j + 1)/fs*(0:nb_pts_filt-1));
+            % Filter again with better estimate
+            dataF(:,j) = conv(data(:,j),b(:,j),'same');
+            dataF(:,j+1) = conv(data(:,j+1),b(:,j+1), 'same');
         else %% fopt on different channels
 
             % Finding linear slope of reference to find its frequency
@@ -206,6 +217,11 @@ else
                 b(:,j) = bCEO.*exp(1j.*2*pi*freqCWs(j)/fs*(0:nb_pts_filt-1));
                 b(:,j+1) = bCEO.*exp(1j.*2*pi*freqCWs(j + 1)/fs*(0:nb_pts_filt-1));
             end
+
+            % Filter again with better estimate
+            dataF(:,j) = conv(data(:,j),b(:,j),'same');
+            dataF(:,j+1) = conv(data(:,j+1),b(:,j+1), 'same');
+
         end
 
         fprintf("Reference %d frequency 1 found : %.06f MHz\n",i, freqCWs(j)/1e6)
@@ -213,7 +229,13 @@ else
 
     end
     clear data temp1 temp2 spcCW
-
+    
+    if (idxEnd > length(dataF))
+        idxEnd = length(dataF);
+    end
+     if (idxStart < 1)
+        idxStart = 1;
+    end
     dataF = dataF(idxStart:idxEnd, :);
 
 
@@ -273,12 +295,15 @@ else
             IGMsFPC1 = dataF(:,1).*exp(1j*phiFPC);
             IGMsFPC2 = dataF(:,1).*exp(-1j*phiFPC);
 
-            [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, ~, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
+            [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
-            phiZPD1 = phiZPD1(2:end);
-            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, ~, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
+             phiZPD1 = phiZPD1(2:end);
+            true_locs1 = true_locs1(2:end);
+
+            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
             phiZPD2 = phiZPD2(2:end);
+            true_locs2 = true_locs2(2:end);
 
             % Minimum variance means we should have the right sign (could be wrong
             % with unwrapping errors
@@ -294,6 +319,8 @@ else
                 end
                 template = template1;
                 templateFull = templateFull1;
+                phiZPD = phiZPD1;
+                true_locs = true_locs1;
                 IGMsFPC = IGMsFPC1;
                 normalized_phase_slope = normalized_phase_slope1;
                 ptsPerIGM_sub = ptsPerIGM_sub1;
@@ -315,7 +342,8 @@ else
                 conjugateCW1_C2 = 1;
                 template = template2;
                 templateFull = templateFull2;
-
+                phiZPD = phiZPD2;
+                true_locs = true_locs2;
                 IGMsFPC = IGMsFPC2;
                 normalized_phase_slope = normalized_phase_slope2;
                 ptsPerIGM_sub = ptsPerIGM_sub2;
@@ -336,25 +364,20 @@ else
                 phiFPC = unwrap(angle(double(refCW1)))*apriori_params.nb_harmonic; % calculate phase to correct
                 refCW1 = exp(1j*phiFPC);
             end
-            %     FPC_freq = apriori_params.nb_harmonic*fPC(2);
-            %     if (FPC_freq > apriori_params.fr_approx_Hz/2)
-            %         FPC_shift = apriori_params.fr_approx_Hz/2 - FPC_freq; % to be tested, probably wrong....
-            %     end
-            %
-            % end
             % We have two possibilities left, we try both possibilities and take
             % the one with the minimum variance on the ZPD phase
             IGMsFPC1 = dataF(:,1).*exp(1j*phiFPC);
             IGMsFPC2 = dataF(:,1).*exp(-1j*phiFPC);
 
-            [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, ~, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
+            [template1, templateFull1 ,phiZPD1, normalized_phase_slope1, ptsPerIGM_sub1, true_locs1, nb_pts_max_xcorr1] = Find_correction_parameters(IGMsFPC1, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
             phiZPD1 = phiZPD1(2:end);
+            true_locs1 = true_locs1(2:end);
 
-            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, ~, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
+            [template2, templateFull2, phiZPD2, normalized_phase_slope2, ptsPerIGM_sub2, true_locs2, nb_pts_max_xcorr2] = Find_correction_parameters(IGMsFPC2, ptsPerIGM, ...
                 'cm', apriori_params.half_width_template);
             phiZPD2 = phiZPD2(2:end);
-
+            true_locs2 = true_locs2(2:end);
             % Minimum variance means we should have the right sign (could be wrong
             % with unwrapping errors
             if var(detrend(phiZPD1)) < var(detrend(phiZPD2))
@@ -370,6 +393,8 @@ else
                 end
                 template = template1;
                 templateFull = templateFull1;
+                phiZPD = phiZPD1;
+                true_locs = true_locs1;
                 IGMsFPC = IGMsFPC1;
                 normalized_phase_slope = normalized_phase_slope1;
                 ptsPerIGM_sub = ptsPerIGM_sub1;
@@ -391,6 +416,8 @@ else
                 conjugateCW1_C2 = 0;
                 template = template2;
                 templateFull = templateFull2;
+                phiZPD = phiZPD2;
+                true_locs = true_locs2;
                 IGMsFPC = IGMsFPC2;
                 normalized_phase_slope = normalized_phase_slope2;
                 ptsPerIGM_sub = ptsPerIGM_sub2;
@@ -416,6 +443,29 @@ else
                 freq_0Hz_electrical_approx_Hz = f_laser + abs(fshift_optical);
             end
 
+            normalized_slope_self_corr = polyfit(true_locs(2:end), phiZPD(2:end), 1);
+            normalized_phase_slope(1) = normalized_phase_slope(1) - normalized_slope_self_corr(1);
+            [template, templateFull ,phiZPD, ~, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(IGMsFPC, ptsPerIGM, ...
+                0, apriori_params.half_width_template);
+            IGM1_xc = xcorr(template,'coeff');
+            idxList = find(abs(IGM1_xc)>0.3);
+            slope = polyfit(idxList,unwrap(angle(IGM1_xc(idxList))),1);
+            slope(2) = [];
+            f_cm = slope*fs/2/pi;
+            [spc,f] = ffta(ifftshift(template));
+            f = f*fs;
+            spc = abs(spc)/max(abs(spc));
+            idxfirst = find(spc > 0.5,1,'first');
+            idxlast = find(spc > 0.5,1,'last');
+            HWHM = (f(idxlast) - f(idxfirst))/2;
+            if (abs(f_cm) < HWHM)
+                normalized_phase_slope = 0;
+            else
+               
+                IGMsFPC = IGMsFPC.*exp(-1j* normalized_phase_slope(1)*(0:length(IGMsFPC)-1)');
+                [template, templateFull ,phiZPD, ~, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(IGMsFPC, ptsPerIGM, ...
+                0, apriori_params.half_width_template);
+            end
             % Unused variables in this case, using default values
             projection_factor = 0;
             phase_projection = 0;
@@ -454,7 +504,6 @@ else
                 f_laser = c/(apriori_params.reference1_laser_wvl_nm*1e-9);
             elseif  (apriori_params.spectro_mode == 2)
                 f_laser = c/(apriori_params.reference1_laser_wvl_nm/apriori_params.nb_harmonic*1e-9);
-
             end
             try
                 if (apriori_params.reference2_laser_wvl_nm == 0)
@@ -497,7 +546,7 @@ else
 
             % We test the two cases of dfr left
             for i = 1:2
-
+        
                 refdfr = ref_dfrs(:, idx_sort(i));
                 N = numel(refdfr);
                 phidfr(:,i) = unwrap(angle(double(refdfr)));
@@ -549,23 +598,56 @@ else
                 x =1;
                 % normalized_phase_slope = normalized_phase_slope + normalized_phase_slope1;
                 normalized_phase_slope = normalized_phase_slope1;
-
+                IGMsPC = IGMsPC(:,1);
                 ptsPerIGM_sub = ptsPerIGM_sub1;
                 template = template1;
                 templateFull = templateFull1;
+                phiZPD = phiZPD1;
+                true_locs = true_locs1;
                 phidfr = phidfr(:,1);
                 nb_pts_max_xcorr = nb_pts_max_xcorr1;
             else
                 x=2;
+                IGMsPC = IGMsPC(:,2);
                 % normalized_phase_slope = normalized_phase_slope + normalized_phase_slope2;
                 normalized_phase_slope = normalized_phase_slope2;
 
                 ptsPerIGM_sub = ptsPerIGM_sub2;
                 template = template2;
                 templateFull = templateFull2;
+                phiZPD = phiZPD2;
+                true_locs = true_locs2;
                 phidfr = phidfr(:,2);
                 nb_pts_max_xcorr = nb_pts_max_xcorr2;
             end
+
+            normalized_slope_self_corr = polyfit(true_locs(2:end), phiZPD(2:end), 1);
+            normalized_phase_slope(1) = normalized_phase_slope(1) - normalized_slope_self_corr(1);
+
+            [template, templateFull ,phiZPD, normalized_phase_slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(IGMsPC, ptsPerIGM, ...
+                0, apriori_params.half_width_template);
+            if (apriori_params.do_phase_projection == 0)
+                IGM1_xc = xcorr(template,'coeff');
+                idxList = find(abs(IGM1_xc)>0.3);
+                slope = polyfit(idxList,unwrap(angle(IGM1_xc(idxList))),1);
+                slope(2) = [];
+                f_cm = slope*fs/2/pi;
+                [spc,f] = ffta(ifftshift(template));
+                f = f*fs;
+                spc = abs(spc)/max(abs(spc));
+                idxfirst = find(spc > 0.5,1,'first');
+                idxlast = find(spc > 0.5,1,'last');
+                HWHM = (f(idxlast) - f(idxfirst))/2;
+                if (abs(f_cm) < HWHM)
+                    normalized_phase_slope = 0;
+                else
+
+                    IGMsPC = IGMsPC.*exp(-1j* normalized_phase_slope(1)*(0:length(IGMsPC)-1)');
+                    [template, templateFull ,phiZPD, ~, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(IGMsPC, ptsPerIGM, ...
+                        0, apriori_params.half_width_template);
+                end
+            end
+
 
             % Update other parameters
             factorLever = 0;
@@ -697,9 +779,7 @@ else
                     IGMsProj =dataF(:,1).*exp(1j*phiTotProj);
                     [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters( IGMsProj, ptsPerIGM, ...
                         0, apriori_params.half_width_template);
-
-
-
+                    
                 else  %   % If we are adding fast resampling with phase projection
                     if countSmaller >= 2
                         projection_factor = projection_factor1;
@@ -714,10 +794,20 @@ else
                     slopedfr = polyfit(1:N, phidfrProj, 1);
                     new_grid_ref = slopedfr(2) + ((0:N-1)*slopedfr(1))';
                     IGMsProjR = interp1(phidfrProj, IGMsProj, new_grid_ref, 'linear',0);
-                    [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters( IGMsProjR, ptsPerIGM, ...
+                    [~, ~, phiZPD, ~, ~, true_locs, ~] = Find_correction_parameters( IGMsProjR, ptsPerIGM, ...
                         0, apriori_params.half_width_template);
                     normalized_slope_self_corr = polyfit(true_locs(2:end), phiZPD(2:end), 1); % For some reason the first is phase is often wrong
                     projection_factor = projection_factor + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
+                    
+                    phidfrProj = phidfr*(projection_factor);
+                    phiTotProj = phiFPC+phidfrProj;
+                    IGMsProj =dataF(:,1).*exp(1j*phiTotProj);
+                    N = numel(IGMsProj);
+                    slopedfr = polyfit(1:N, phidfrProj, 1);
+                    new_grid_ref = slopedfr(2) + ((0:N-1)*slopedfr(1))';
+                    IGMsProjR = interp1(phidfrProj, IGMsProj, new_grid_ref, 'linear',0);
+                    [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters( IGMsProjR, ptsPerIGM, ...
+                        0, apriori_params.half_width_template);
 
                     if countSmaller >= 2
 
@@ -735,21 +825,38 @@ else
 
         end
 
-    elseif (apriori_params.spectro_mode == 1)
+    elseif (apriori_params.spectro_mode == 1 || apriori_params.spectro_mode == 3)
         % We take the combination with the minimum variance
         if idxmin == 1
 
             conjugateCW1_C1 = 0;
             conjugateCW1_C2 = 0;
-            refCW1 = ref1;
-            fdfr(1) = fPC(1);
+            if (apriori_params.spectro_mode == 3)
+                phiFPC = unwrap(angle(double(ref1)))*(1/apriori_params.nb_harmonic); % calculate phase to correct
+                refCW1 = exp(1j*phiFPC);
+                apriori_params.reference1_laser_wvl_nm = apriori_params.reference1_laser_wvl_nm*apriori_params.nb_harmonic;
+                fdfr(1) = fPC(1)/apriori_params.nb_harmonic;
+            else
+                refCW1 = ref1;
+                fdfr(1) = fPC(1);
+            end
+            
         else
 
             conjugateCW1_C1 = 0;
             conjugateCW1_C2 = 1;
-            refCW1 = ref1C;
-            fdfr(1) = fPC(2);
+            if (apriori_params.spectro_mode == 3)
+                phiFPC = unwrap(angle(double(ref1C)))*(1/apriori_params.nb_harmonic); % calculate phase to correct
+                refCW1 = exp(1j*phiFPC);
+                apriori_params.reference1_laser_wvl_nm = apriori_params.reference1_laser_wvl_nm*apriori_params.nb_harmonic;
+                fdfr(1) = fPC(2)/apriori_params.nb_harmonic;
+            else
+                refCW1 = ref1C;
+                fdfr(1) = fPC(2);
+            end
+            
         end
+
         normalized_phase_slope = 0;
         fprintf("Finding correction parameters in the MIR for reference 2...\n")
 
@@ -757,7 +864,7 @@ else
         % references and the IGMs.
         offset3 = round(apriori_params.references_total_path_length_offset_m/c*fs);
         offset4 =  round(apriori_params.references_total_path_length_offset_m/c*fs);
-
+        
         % We have four possibilities for the sign of reference 2, we start
         % with these two
         refCW2 = circshift(dataF(:,4),offset3).*circshift(dataF(:,5), offset4);
@@ -894,7 +1001,7 @@ else
 
         [~, idxPhi] = min(varPhi);
         [~, idxLocs] = min(varLocs);
-
+        
         % if (idxPhi == idxLocs)
         %     x = idxPhi;
         % else
@@ -909,6 +1016,7 @@ else
             fprintf('The minimal variance on xcorr positions does not match the minimal variance on xcorr phase... \n Verify correction parameters\n')
             x = idxLocs;
         end
+        
         % To DO
         if (apriori_params.do_fast_resampling ==0)
             if x == 1
@@ -972,16 +1080,25 @@ else
             end
 
             normalized_slope_dfr = polyfit(1:N, phidfr, 1);
-            phiTotProj = phidfr*(projection_factor);
-            IGMsProj =dataF(:,1).*exp(1j*phiTotProj);
+            phidfrProj = phidfr*(projection_factor);
+            IGMsProj =dataF(:,1).*exp(1j*phidfrProj);
             N = numel(IGMsProj);
             slopedfr = polyfit(1:N, phidfrProj, 1);
             new_grid_ref = slopedfr(2) + ((0:N-1)*slopedfr(1))';
-            IGMsProjR = interp1(phidfrProj, IGMsProj, new_grid_ref, 'linear',0);
-            [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(IGMsProjR, ptsPerIGM, ...
+            IGMsProjR = interp1(phidfrProj, IGMsProj, new_grid_ref, 'spline',0);
+            [~, ~, phiZPD, ~, ~, true_locs, ~] = Find_correction_parameters(IGMsProjR, ptsPerIGM, ...
                 0, apriori_params.half_width_template);
             normalized_slope_self_corr = polyfit(true_locs(2:end), phiZPD(2:end), 1); % For some reason the first is phase is often wrong
             projection_factor = projection_factor + normalized_slope_self_corr(1)/normalized_slope_dfr(1);
+
+            phidfrProj = phidfr*(projection_factor);
+            IGMsProj =dataF(:,1).*exp(1j*phidfrProj);
+            N = numel(IGMsProj);
+            slopedfr = polyfit(1:N, phidfrProj, 1);
+            new_grid_ref = slopedfr(2) + ((0:N-1)*slopedfr(1))';
+            IGMsProjR = interp1(phidfrProj, IGMsProj, new_grid_ref, 'spline',0);
+            [template, templateFull, phiZPD, slope, ptsPerIGM_sub, true_locs, nb_pts_max_xcorr] = Find_correction_parameters(IGMsProjR, ptsPerIGM, ...
+                0, apriori_params.half_width_template);
 
             freq_0Hz_electrical_approx_Hz = projection_factor*f_laser;
         end

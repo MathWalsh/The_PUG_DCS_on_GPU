@@ -154,8 +154,8 @@ public:
 	int32				StartStreamingAcquisition();		// starts the streaming acqusition 
 	int32				StopStreamingAcquisition();		// stops the streaming acqusition 
 
-	int32				RetreiveAcquisitionConfig();		// Retreive from field and populate object variables
-	int32				RetreiveTotalRequestedSamples();	// Ask the card how many samples were requested
+	int32				RetrieveAcquisitionConfig();		// Retreive from field and populate object variables
+	int32				RetrieveTotalRequestedSamples();	// Ask the card how many samples were requested
 	int32				RetrieveSystemInfo();				// Queries the board for info
 	
 	CSHANDLE			GetSystemHandle();

@@ -82,6 +82,7 @@ private:
 	DCSCONFIG						DcsCfg = { 0 };		// DCS config
 	DCSHostStatus					DcsHStatus;
 	DCSDeviceStatus					DcsDStatus;
+	DCSSelfCorrectionStatus			DcsSelfCorrStatus;
 	// local copies of commonly used shared variables...
 
 	//uint32_t						NActiveChannel					= 0;
@@ -116,14 +117,21 @@ private:
 	uint32_t						segment_size_per_channel;
 
 	int								maximum_ref_delay_offset_pts = 10e3; // Arbitrary maximum delay, should be enough for large path length,
-																		 // seems to be problematic when this value is too high for unknown reasons (i.e. 100e3)
+																		 // seems to be problematic when this value is too high for unknown reasons (i.e. 100e3	
 
+	uint32_t						saveCounter = 1;
 	uint32_t						batchCounter = 0;
-	uint32_t						batchCounterSendDataMain = 1;
 	float							speed_of_light = 299792458; // speed of light m / s	
 
 	uint64_t						console_update_counter = 0; // s
+	uint64_t						console_status_update_counter = 0; // s
 	
+	bool							do_self_correction = true;
+
+	int								NIGMs_continuity = 3;
+
+	bool							save_data_to_file_local = true;
+
 	std::ifstream inputfile; // input file for processing from disk
 	// CPU buffers
 
@@ -141,11 +149,9 @@ private:
 
 	// Swapping buffers for double buffering
 	void* pCurrentBuffer = NULL;			// Pointer to buffer where we will schedule data transferts;
-	void* pCurrentBuffer1 = NULL;			// Pointer to buffer where we will schedule data transferts;
 	void* pWorkBuffer = NULL;			// Pointer to previous buffer that we can work on;
 
 	void* hCurrentBuffer = NULL;			// Pointer to buffer where we will schedule data transferts;
-	void* hCurrentBuffer1 = NULL;			// Pointer to buffer where we will schedule data transferts;
 	void* hWorkBuffer = NULL;			// Pointer to previous buffer that we can work on;
 
 	// General GPU variables
@@ -156,7 +162,6 @@ private:
 	cufftComplex* IGMsOutFloat2 = NULL;
 	
 	// Raw data buffers
-	short* rawData_inCPU_ptr = NULL;				// Buffer for input data cudaMallocManager	this is a short int*		previously d_buffer
 	short* raw_data_GPU_ptr = NULL;				// Buffer for input data on the device, current (cudaMalloc)
 	short* raw_data_GPU1_ptr = NULL;				// Buffer for input data on the device, buffer 1 (cudaMalloc)
 	short* raw_data_GPU2_ptr = NULL;				// Buffer for input data on the device, buffer 2 (cudaMalloc)
@@ -205,11 +210,18 @@ private:
 
 	// find_IGMs_ZPD_GPU
 	cufftComplex* IGMs_selfcorrection_in_ptr = NULL;	// Used to find ZPDs and do self correction
+	cufftComplex* IGMs_selfcorrection_in1_ptr = NULL;	// Used to find ZPDs and do self correction
+	cufftComplex* IGMs_selfcorrection_in2_ptr = NULL;	// Used to find ZPDs and do self correction
 	cufftComplex* IGM_template_ptr = NULL;			// Template IGM for xcorr
 	cufftComplex* xcorr_IGMs_blocks_ptr = NULL;		// xcorr results for each block in the segment and for the total result
 	cufftComplex* LastIGMBuffer_ptr = NULL;			// To keep the discarded data points at the end of the segment for the next segment	
 	double* index_max_xcorr_subpoint_ptr = NULL;				// subpoint ZPD positions of each IGM in the segment
+	double* index_max_xcorr_subpoint1_ptr = NULL;				// subpoint ZPD positions of each IGM in the segment
+	double* index_max_xcorr_subpoint2_ptr = NULL;				// subpoint ZPD positions of each IGM in the segment
 	float* phase_max_xcorr_subpoint_ptr = NULL;			// subpoint phase of ZPD  of each IGM in the segment
+	float* phase_max_xcorr_subpoint_temp_ptr = NULL;			// subpoint phase of ZPD  of each IGM in the segment
+	float* phase_max_xcorr_subpoint1_ptr = NULL;			// subpoint phase of ZPD  of each IGM in the segment
+	float* phase_max_xcorr_subpoint2_ptr = NULL;			// subpoint phase of ZPD  of each IGM in the segment
 	double* index_mid_segments_ptr = NULL;					// ZPD positions of each IGM in the segment, used for the global index of the maximum
 	double* unwrapped_selfcorrection_phase_ptr = NULL;				// For unwrapping a phase signal
 
@@ -227,11 +239,12 @@ private:
 	cufftComplex* IGM_mean_ptr = NULL;
 	cufftComplex* IGM_meanFloatOut_ptr = NULL;
 	int16Complex* IGM_meanIntOut_ptr = NULL;
-	
+	int* idxSaveIGMs_ptr = NULL;
 	// CUDA variables
 	cudaStream_t cuda_stream = 0;					// Cuda stream
 	cudaStream_t cuda_stream1 = 0;					// Cuda stream
 	cudaError_t	cudaStatus;							// To check kernel launch errors
+
 	void		UpdateLocalVariablesFromShared_noLock();	// This one is private so that an unsuspecting user does not update without locking
 	void		PushLocalVariablesToShared_nolock();
 
@@ -261,23 +274,22 @@ public:														// Constructor
 
 	void		CreatecuSolverHandle();						
 
+	void		PopulateHostStatus(DCSHostStatus& DcsHStatus);
+	void		PopulateDeviceStatus(DCSDeviceStatus& DcsDStatus);
+	void		PopulateSelfCorrectionStatus(DCSSelfCorrectionStatus& DcsSelfCorrStatus, DCSCONFIG& DcsCfg);
+
 	void		AllocateGPUBuffers();						// Allocate all CUDA buffers not the cleanest code as it needs to be changed each time we need a new buffer 
-	void		AllocateGPUMultiBuffers();						// Allocate all CUDA buffers not the cleanest code as it needs to be changed each time we need a new buffer 
 	void		AllocateCudaManagedBuffer(void** buffer, uint32_t size);	// Allocate one managed buffer, and zero it out
 
 	void		copyDataToGPU_async(int32_t u32LoopCount);
 
 	void		ProcessInGPU(int32_t u32LoopCount);
+	void		ComputeSelfCorrectionInGPU(int32_t u32LoopCount);
 
-	//void		FilterInGPU(int32_t u32LoopCount);
 
-	void		FilterMultiBufferInGPU(int32_t u32LoopCount);
 
-	void		FastCorrectionsMultiBufferInGPU(int32_t u32LoopCount);
 
-	void		XcorrMultiBufferInGPU(int32_t u32LoopCount);
 
-	void		SelfCorrectionMultiBufferInGPU(int32_t u32LoopCount);
 
 	void		setReadyToProcess(bool value);				// Sets the atomic flag to tell the thread is ready to process or not
 
@@ -305,6 +317,7 @@ public:														// Constructor
 	void		StartCounter();
 	void		StopCounter();
 	void		UpdateProgress(int32_t u32LoopCount);
+
 	
 
 };
