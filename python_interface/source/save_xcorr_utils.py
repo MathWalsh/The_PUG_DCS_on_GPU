@@ -13,7 +13,7 @@ this should really be done on the C side, and the xcorr info should be saved wit
 
 import struct
 import datetime
-
+import os
 # These 4 functions are used to generate the Xcorr records of each measurements
 # The xcorr amplitude is basically a measurement of the amplitude of each IGM
 # You can convert from xcorr amplitude to mV with xcorr_factor_mV
@@ -22,13 +22,25 @@ import datetime
 def create_unique_filename():
     # Generate a filename with the current date and time
     now = datetime.datetime.now()
-    return now.strftime("Xcorr_records//data_xcorr_%Y-%m-%d_%H-%M-%S.bin")
+    folder_path = "Xcorr_records"
+    filename = now.strftime("data_xcorr_%Y-%m-%d_%H-%M-%S.bin")
+   
+    # Return the full path of the file
+    return os.path.join(folder_path, filename)
 
 def open_binary_file():
-    # Create a unique filename for each data file
-    filename = create_unique_filename()
-    # Open the file in append and binary mode, return the file object
-    return open(filename, 'ab')
+   # Create a unique filename for each data file
+   filename = create_unique_filename()
+
+   # Extract the directory path from the filename
+   folder_path = os.path.dirname(filename)
+
+   # Check if the directory exists, if not, create it
+   if not os.path.exists(folder_path):
+       os.makedirs(folder_path)
+
+   # Open the file in append and binary mode, return the file object
+   return open(filename, 'ab')
 
 def pack_data(date, data_points):
     # Pack the date as string and data points as doubles
