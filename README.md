@@ -33,6 +33,8 @@ Additional information
 ---------------------------
 Additional information on the signal processing behind the code can be obtained from these papers : 
 
+Graphics card-based real-time processing for dual comb interferometry (https://doi.org/10.1063/5.0222548)
+
 Self-corrected chip-based dual-comb spectrometer (https://doi.org/10.1364/OE.25.008168)
 
 Self-Correction Limits in Dual-Comb Interferometry (https://doi.org/10.1109/JQE.2019.2918935)
@@ -40,8 +42,6 @@ Self-Correction Limits in Dual-Comb Interferometry (https://doi.org/10.1109/JQE.
 Continuous real-time correction and averaging for frequency comb interferometry (https://doi.org/10.1364/OE.20.021932)
 
 Autocorrection en temps réel pour la spectroscopie à double peigne de fréquences optiques (https://corpus.ulaval.ca/entities/publication/60da76c8-1c3d-4798-a043-05b6b48f2a30)
-
-A paper presenting the specific details of the implementation on the GPU is coming soon. A block diagram of the algorithm is already available in the documentation folder.
 
 Contributors
 ---------------------------
