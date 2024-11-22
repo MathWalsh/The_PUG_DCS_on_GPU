@@ -3,6 +3,21 @@ The PUG: Real-time dual comb spectroscopy (DCS) on a graphical processing unit (
 Welcome to The PUG! Our software implements real-time corrections of a DCS interferogram stream to coherently average the interferograms, making it simpler to perform long-term experiments. It cuts down on the need for heavy post-processing and greatly reduces the amount of storage space needed.
 With The PUG, you can focus more on the exciting scientific discoveries and less on the tedious signal processing!
 
+Important update
+---------------------------
+Public Version Notice:
+The last public release of this public project, version v2.0.0, was published on October 8, 2024.
+
+Commercial Version Available:
+As of November 22, 2024, a commercial version is now available. This version includes:
+
+- Bug fixes.
+- Advanced features, such as support for two interferogram correction channels.
+- Option to purchase a complete solution (hardware + software).
+
+If you're interested in the commercial software version or the full solution, please contact us at:
+elanspectral@gmail.com
+
 How to use The PUG
 ---------------------------
 1. Download the required files from the "Releases section": https://github.com/MathWalsh/The_PUG_DCS_on_GPU/releases/latest
@@ -49,7 +64,7 @@ Mathieu Walsh : https://github.com/MathWalsh
 
 Jérôme Genest : https://github.com/JeromeGenest
 
-You can contact us via email : ThePugDCSonGPU@hotmail.com
+You can contact us via email for non-commercial purposes: ThePugDCSonGPU@hotmail.com
 
 License
 ---------------------------
@@ -58,9 +73,9 @@ Copyright (c) 2024, Mathieu Walsh, Jérôme Genest. All rights reserved.
 The software is available for redistribution and use in source and binary forms, with or without modification, but strictly for non-commercial purposes only.
 See License.txt for more information on the conditions.
 
-For commercial licenses or to request custom features, please contact us by email : ThePugDCSonGPU@hotmail.com
+For commercial licenses or to request custom features, please contact us by email: elanspectral@gmail.com
 
 
 Disclaimer
 ---------------------------
-This is not a commercial product, there are still bugs and undetected issues in the code. To improve the quality of the code, please report any issues (https://github.com/MathWalsh/The_PUG_DCS_on_GPU/issues) encountered. If you need support to use the code, contact us via email, we will try to respond as fast as possible to get you going!
+This version is not a commercial product, there are still bugs and undetected issues in the code. To improve the quality of the code, please report any issues (https://github.com/MathWalsh/The_PUG_DCS_on_GPU/issues) encountered. If you need support to use the code, contact us via email, we will try to respond as fast as possible to get you going!
