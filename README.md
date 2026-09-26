@@ -64,8 +64,6 @@ Mathieu Walsh : https://github.com/MathWalsh
 
 Jérôme Genest : https://github.com/JeromeGenest
 
-You can contact us via email for non-commercial purposes: ThePugDCSonGPU@hotmail.com
-
 License
 ---------------------------
 Copyright (c) 2024, Mathieu Walsh, Jérôme Genest. All rights reserved.
